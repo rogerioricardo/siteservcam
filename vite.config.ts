@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
@@ -16,7 +17,7 @@ fs.writeFileSync(path.resolve(__dirname, 'public/version.json'), JSON.stringify(
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tsconfigPaths()],
   base: './',
   define: {
     '__APP_VERSION__': version,
