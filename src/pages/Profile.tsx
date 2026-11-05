@@ -198,11 +198,35 @@ const Profile: React.FC = () => {
   const [hasCameraRental, setHasCameraRental] = useState(false);
   const [cameraRentalDetails, setCameraRentalDetails] = useState('');
   const [recordingDays, setRecordingDays] = useState<number>(7);
+  const [customClause, setCustomClause] = useState('');
 
   const isIntegrator = 
     user?.role === UserRole.INTEGRATOR || 
-    Boolean(user?.email && user.email.toLowerCase().includes('integrador')) ||
-    user?.email?.toLowerCase() === 'rogerioricardoluizintegrador@gmail.com';
+    user?.role === UserRole.ADMIN ||
+    Boolean(user?.email && (user.email.toLowerCase().includes('integrador') || user.email.toLowerCase().includes('alien'))) ||
+    user?.email?.toLowerCase() === 'rogerioricardoluiz@gmail.com' ||
+    user?.email?.toLowerCase() === 'servcam@alienmonitoramento.com.br';
+
+  const isAlien = 
+    user?.email?.toLowerCase() === 'rogerioricardoluiz@gmail.com' ||
+    user?.email?.toLowerCase() === 'servcam@alienmonitoramento.com.br' ||
+    user?.email?.toLowerCase() === 'alienmonitoramentoeletronico@gmail.com' ||
+    user?.email?.toLowerCase() === 'rogerioricardoluizintegrador@gmail.com' ||
+    Boolean(user?.email && user.email.toLowerCase().includes('alien')) ||
+    Boolean(user?.companyName && user.companyName.toLowerCase().includes('alien')) ||
+    Boolean(brandName && brandName.toLowerCase().includes('alien')) ||
+    user?.role === UserRole.ADMIN ||
+    !user?.id ||
+    user?.id === 'alienmonitoramento-integrator-id' ||
+    user?.id === 'a11e9920-6765-4f81-b454-e6778b77ee66';
+
+  const effectiveIntegratorId = isAlien
+    ? 'alienmonitoramento-integrator-id'
+    : (user?.id || 'alienmonitoramento-integrator-id');
+
+  const effectiveSystemUuid = isAlien
+    ? 'a11e9920-6765-4f81-b454-e6778b77ee66'
+    : (user?.id || 'alienmonitoramento-integrator-id');
 
   const parseRgbTriple = (val: string): [number, number, number] => {
     if (!val) return [0, 255, 102];
@@ -239,11 +263,12 @@ const Profile: React.FC = () => {
 
   const handleApplyImmediately = () => {
     const cleanRgb = brandCustomRgb.trim().replace(/^rgb\(|\)$/gi, '').trim();
-    if (user?.id) {
+    const targetId = user?.id || effectiveIntegratorId;
+    if (targetId) {
       try {
-        localStorage.setItem(`atalaia_integrator_custom_rgb_${user.id}`, cleanRgb);
+        localStorage.setItem(`atalaia_integrator_custom_rgb_${targetId}`, cleanRgb);
         const colorsMap = JSON.parse(localStorage.getItem('atalaia_integrator_colors') || '{}');
-        colorsMap[user.id] = cleanRgb;
+        colorsMap[targetId] = cleanRgb;
         localStorage.setItem('atalaia_integrator_colors', JSON.stringify(colorsMap));
       } catch (_) {}
     }
@@ -252,10 +277,15 @@ const Profile: React.FC = () => {
     setTimeout(() => setAppliedLiveMsg(false), 2500);
   };
 
+  const activeBaseOrigin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')
+    ? window.location.origin
+    : 'https://ais-dev-6poc3il3qcyznrtjn4rips-44114112762.us-west2.run.app';
+
+  const clientLoginFullUrl = `${activeBaseOrigin}/#/logincliente?integrator=${effectiveIntegratorId}`;
+
   const [copiedClientLink, setCopiedClientLink] = useState(false);
   const handleCopyClientLink = () => {
-    const url = `${window.location.origin}/#/logincliente?integrator=${user?.id || ''}`;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(clientLoginFullUrl);
     setCopiedClientLink(true);
     setTimeout(() => setCopiedClientLink(false), 2500);
   };
@@ -280,6 +310,7 @@ const Profile: React.FC = () => {
       let initRental = user.hasCameraRental !== undefined ? Boolean(user.hasCameraRental) : false;
       let initDetails = user.cameraRentalDetails || '';
       let initRecordingDays = user.recordingDays !== undefined ? Number(user.recordingDays) : 7;
+      let initCustomClause = user.customClause || '';
 
       if (user.id && typeof window !== 'undefined') {
         try {
@@ -290,6 +321,7 @@ const Profile: React.FC = () => {
             if (user.hasCameraRental === undefined && p.hasCameraRental !== undefined) initRental = Boolean(p.hasCameraRental);
             if (!initDetails && p.cameraRentalDetails) initDetails = p.cameraRentalDetails;
             if (user.recordingDays === undefined && p.recordingDays !== undefined) initRecordingDays = Number(p.recordingDays);
+            if (!initCustomClause && p.customClause !== undefined) initCustomClause = p.customClause;
           }
         } catch (_) {}
       }
@@ -298,6 +330,7 @@ const Profile: React.FC = () => {
       setHasCameraRental(initRental);
       setCameraRentalDetails(initDetails || 'Locação de 1 câmera Full HD com suporte e manutenção inclusa');
       setRecordingDays(initRecordingDays);
+      setCustomClause(initCustomClause || '');
     }
   }, [user, savingBranding]);
 
@@ -334,7 +367,8 @@ const Profile: React.FC = () => {
               singlePlanPrice: singlePlanPrice.trim() || '49,90',
               hasCameraRental: Boolean(hasCameraRental),
               cameraRentalDetails: cameraRentalDetails.trim(),
-              recordingDays: Number(recordingDays)
+              recordingDays: Number(recordingDays),
+              customClause: customClause.trim()
           });
 
           await updateProfile({
@@ -355,13 +389,36 @@ const Profile: React.FC = () => {
               singlePlanPrice: singlePlanPrice.trim() || '49,90',
               hasCameraRental: Boolean(hasCameraRental),
               cameraRentalDetails: cameraRentalDetails.trim(),
-              recordingDays: Number(recordingDays)
+              recordingDays: Number(recordingDays),
+              customClause: customClause.trim()
           } as any);
+
+          if (user?.id) {
+              try {
+                  localStorage.setItem(`atalaia_integrator_plan_${user.id}`, JSON.stringify({
+                    singlePlanPrice: singlePlanPrice.trim() || '49,90',
+                    hasCameraRental: Boolean(hasCameraRental),
+                    cameraRentalDetails: cameraRentalDetails.trim(),
+                    recordingDays: Number(recordingDays),
+                    customClause: customClause.trim()
+                  }));
+                  window.dispatchEvent(new CustomEvent('atalaia:plan_config_changed'));
+              } catch (_) {}
+          }
 
           setFormData(prev => ({ ...prev, phone: brandPhone }));
 
           if (user?.id) {
               try {
+                  localStorage.setItem(`atalaia_integrator_phone_${user.id}`, brandPhone.trim());
+                  const phonesMap = JSON.parse(localStorage.getItem('atalaia_integrator_phones') || '{}');
+                  if (brandPhone.trim()) {
+                    phonesMap[user.id] = brandPhone.trim();
+                  } else {
+                    delete phonesMap[user.id];
+                  }
+                  localStorage.setItem('atalaia_integrator_phones', JSON.stringify(phonesMap));
+
                   localStorage.setItem(`atalaia_integrator_custom_rgb_${user.id}`, brandCustomRgb);
                   const colorsMap = JSON.parse(localStorage.getItem('atalaia_integrator_colors') || '{}');
                   colorsMap[user.id] = brandCustomRgb;
@@ -372,10 +429,13 @@ const Profile: React.FC = () => {
                       singlePlanPrice: singlePlanPrice.trim() || '49,90',
                       hasCameraRental: Boolean(hasCameraRental),
                       cameraRentalDetails: cameraRentalDetails.trim(),
-                      recordingDays: Number(recordingDays)
+                      recordingDays: Number(recordingDays),
+                      customClause: customClause.trim()
                   };
                   localStorage.setItem(`atalaia_integrator_plan_${user.id}`, JSON.stringify(planData));
+                  localStorage.setItem('atalaia_integrator_plan_default', JSON.stringify(planData));
                   window.dispatchEvent(new CustomEvent('atalaia:plan_config_changed', { detail: planData }));
+                  window.dispatchEvent(new CustomEvent('atalaia:integrator_updated', { detail: { id: user.id, phone: brandPhone.trim() } }));
               } catch (_) {}
           }
 
@@ -418,7 +478,7 @@ const Profile: React.FC = () => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Central de Monitoramento - Câmeras</title>
+    <title>${brandName || user?.companyName || 'Alien Monitoramento'} - Câmeras</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
         iframe { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; margin: 0; padding: 0; overflow: hidden; }
@@ -426,7 +486,7 @@ const Profile: React.FC = () => {
 </head>
 <body>
     <iframe 
-        src="https://servcam.com.br/#/logincliente?integrator=${user?.id || ''}" 
+        src="${clientLoginFullUrl}" 
         title="Portal de Monitoramento" 
         allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" 
         allowfullscreen>
@@ -434,7 +494,7 @@ const Profile: React.FC = () => {
 </body>
 </html>`;
 
-  const iframeOnlyCode = `<iframe src="https://servcam.com.br/#/logincliente?integrator=${user?.id || ''}" style="width: 100%; height: 100vh; border: none;" title="Portal de Monitoramento" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+  const iframeOnlyCode = `<iframe src="${clientLoginFullUrl}" style="width: 100%; height: 100vh; border: none;" title="Portal de Monitoramento" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
 
   // Carrega dados iniciais do usuário
   useEffect(() => {
@@ -1098,7 +1158,7 @@ const Profile: React.FC = () => {
                                                             </span>
                                                         </div>
                                                         <p className="text-[10px] text-zinc-400">
-                                                            Seus clientes e moradores vinculados visualizam automaticamente este padrão de cores ao acessar o painel.
+                                                            Seus clientes vinculados visualizam automaticamente este padrão de cores ao acessar o painel.
                                                         </p>
                                                         <div className="pt-2 border-t border-white/5 flex items-center justify-between">
                                                             <span className="text-[10px] font-bold text-zinc-300">
@@ -1178,13 +1238,13 @@ const Profile: React.FC = () => {
                                         </span>
                                     </div>
                                     <p className="text-[11px] text-zinc-400">
-                                        Envie este link direto para os seus clientes e moradores. A página já abre personalizada com a marca da sua empresa e com o código de cor RGB escolhido.
+                                        Envie este link direto para os seus clientes. A página já abre personalizada com a marca da sua empresa e com o código de cor RGB escolhido.
                                     </p>
                                     <div className="flex items-center gap-2 pt-1 flex-wrap sm:flex-nowrap">
                                         <input 
                                             type="text" 
                                             readOnly 
-                                            value={`${window.location.origin}/#/logincliente?integrator=${user?.id || ''}`}
+                                            value={clientLoginFullUrl}
                                             className="flex-1 min-w-[200px] h-9 bg-zinc-950 border border-white/10 rounded-lg px-3 text-xs font-mono text-zinc-300 select-all outline-none"
                                         />
                                         <button
@@ -1195,12 +1255,16 @@ const Profile: React.FC = () => {
                                             {copiedClientLink ? <><Check size={13} className="text-atalaia-neon" /> Copiado!</> : 'Copiar Link'}
                                         </button>
                                         <Link
-                                            to={`/logincliente?integrator=${user?.id || ''}`}
+                                            to={`/logincliente?integrator=${effectiveIntegratorId}`}
                                             target="_blank"
                                             className="px-3 h-9 bg-atalaia-neon hover:bg-atalaia-neon/90 text-black border border-atalaia-neon rounded-lg text-xs font-black uppercase transition-all flex items-center gap-1 shrink-0"
                                         >
                                             Visualizar
                                         </Link>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 flex-wrap gap-2 border-t border-white/5 mt-1">
+                                        <span>Código UUID do Sistema: <code className="text-zinc-200 font-mono bg-zinc-950 px-1.5 py-0.5 rounded border border-white/10 select-all">{effectiveSystemUuid}</code></span>
+                                        <span>Identificador Amigável: <code className="text-amber-300 font-mono bg-zinc-950 px-1.5 py-0.5 rounded border border-amber-500/20 select-all">{effectiveIntegratorId}</code></span>
                                     </div>
                                 </div>
 
@@ -1331,6 +1395,29 @@ const Profile: React.FC = () => {
                                         onChange={e => setBrandPix(e.target.value)} 
                                     />
                                 </div>
+
+                                {/* CUSTOM CONTRACT CLAUSE FOR INTEGRATOR */}
+                                <div className="p-4 bg-black/60 border border-atalaia-neon/20 rounded-xl space-y-3 mt-4">
+                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                        <label className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+                                            <FileText size={16} className="text-atalaia-neon" />
+                                            Cláusula Particular / Condições Especiais do Integrador (Opcional)
+                                        </label>
+                                        <span className="text-[10px] bg-atalaia-neon/15 text-atalaia-neon px-2.5 py-0.5 rounded font-black uppercase">
+                                            Adicionada como Cláusula 16 no Contrato dos Clientes
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                                        Escreva aqui observações, termos locais ou garantias específicas da sua empresa. Este texto será inserido automaticamente como a <strong>Cláusula 16</strong> no contrato de prestação de serviços assinado por todos os seus clientes vinculados.
+                                    </p>
+                                    <textarea
+                                        rows={3}
+                                        placeholder="Ex: Suporte presencial em até 24h úteis. Em caso de manutenção nas câmeras locadas, a substituição por equipamento reserva ocorrerá sem custo adicional ao contratante."
+                                        value={customClause}
+                                        onChange={e => setCustomClause(e.target.value)}
+                                        className="w-full bg-zinc-950 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-zinc-600 focus:border-atalaia-neon outline-none font-sans leading-relaxed resize-y"
+                                    />
+                                </div>
                             </div>
 
 
@@ -1376,7 +1463,7 @@ const Profile: React.FC = () => {
                             Dispositivos Conectados
                         </h3>
                         <p className="text-[11px] text-zinc-500 mt-1">
-                            Monitore e encerre as sessões táticas ativas no Atalaia. Uso compartilhado é bloqueado automaticamente para auditar a integridade das câmeras.
+                            Monitore e encerre as sessões ativas no ServCam. O acesso simultâneo é gerenciado para garantir a integridade e segurança do sistema.
                         </p>
                     </div>
                     {sessions.length > 1 && (

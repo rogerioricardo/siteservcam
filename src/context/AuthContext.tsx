@@ -20,24 +20,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const mapProfile = (profile: any): User => ({
-      id: profile.id,
-      name: profile.name || profile.email?.split('@')[0] || 'Usuário',
-      email: profile.email,
-      role: (profile.role as UserRole) || UserRole.RESIDENT,
-      plan: (profile.plan as UserPlan) || 'PREMIUM',
-      neighborhoodId: profile.neighborhood_id,
-      address: profile.address,
-      city: profile.city,
-      state: profile.state,
-      phone: profile.phone,
-      photoUrl: profile.photo_url,
-      lat: profile.lat,
-      lng: profile.lng,
-      approved: profile.approved === true, 
-      mpPublicKey: profile.mp_public_key,
-      mpAccessToken: profile.mp_access_token
-  });
+  const mapProfile = (profile: any): User => {
+      let companyName = profile.company_name || profile.companyName;
+      let companyLogo = profile.company_logo || profile.companyLogo;
+      let razaoSocial = profile.razao_social || profile.razaoSocial;
+      let cnpj = profile.cnpj;
+      let phone = profile.phone;
+      let customRgb = profile.custom_rgb || profile.customRgb;
+
+      if (profile.address && typeof profile.address === 'string' && profile.address.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(profile.address);
+          companyName = companyName || parsed.companyName || parsed.razaoSocial;
+          companyLogo = companyLogo || parsed.companyLogo;
+          razaoSocial = razaoSocial || parsed.razaoSocial;
+          cnpj = cnpj || parsed.cnpj;
+          phone = phone || parsed.phone || parsed.whatsapp || parsed.brandPhone || parsed.telefone || parsed.celular;
+          customRgb = customRgb || parsed.customRgb;
+        } catch (_) {}
+      }
+
+      if (typeof window !== 'undefined' && profile.id && !phone) {
+        try {
+          const direct = localStorage.getItem(`atalaia_integrator_phone_${profile.id}`);
+          if (direct) {
+            phone = direct;
+          } else {
+            const map = JSON.parse(localStorage.getItem('atalaia_integrator_phones') || '{}');
+            if (map[profile.id]) phone = map[profile.id];
+          }
+        } catch (_) {}
+      }
+
+      return {
+          id: profile.id,
+          name: profile.name || profile.email?.split('@')[0] || 'Usuário',
+          email: profile.email,
+          role: (profile.role as UserRole) || UserRole.RESIDENT,
+          plan: (profile.plan as UserPlan) || 'PREMIUM',
+          neighborhoodId: profile.neighborhood_id,
+          address: profile.address,
+          city: profile.city,
+          state: profile.state,
+          phone: phone,
+          photoUrl: profile.photo_url,
+          lat: profile.lat,
+          lng: profile.lng,
+          approved: profile.approved === true, 
+          mpPublicKey: profile.mp_public_key,
+          mpAccessToken: profile.mp_access_token,
+          companyName,
+          companyLogo,
+          razaoSocial,
+          cnpj,
+          customRgb
+      };
+  };
 
   const fetchProfile = async (userId: string, email: string, metadata?: any, triggerNotify = false) => {
       console.log("[Auth] Buscando perfil para:", userId);

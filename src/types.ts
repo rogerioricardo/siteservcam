@@ -50,6 +50,8 @@ export interface User {
   hasCameraRental?: boolean;
   cameraRentalDetails?: string;
   recordingDays?: number;
+  customClause?: string;
+  customSlug?: string;
 }
 
 export interface Coupon {
@@ -214,6 +216,26 @@ export interface RecordingRequest {
     createdAt: string;
 }
 
+
+export interface WhatsAppAutomation {
+    key: string;
+    name: string;
+    description: string;
+    enabled: boolean;
+    targetRole?: string; // 'ALL' | 'ADMIN' | 'INTEGRATOR' | 'RESIDENT' | 'SCR'
+    notifyTarget: 'USER' | 'ADMIN' | 'BOTH' | 'NEIGHBORHOOD';
+    template: string;
+}
+
+export interface WhatsAppDispatchLog {
+    id: string;
+    timestamp: string;
+    trigger: string;
+    recipient: string;
+    messageSnippet: string;
+    status: 'SENT' | 'FAILED';
+    error?: string;
+}
 
 declare global {
   const __APP_VERSION__: number;

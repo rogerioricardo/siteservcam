@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Card, Button, Input } from './UI';
-import { FileText, Check, Shield, AlertTriangle, Download, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { FileText, Check, Shield, AlertTriangle, Download, RefreshCw, Eye, EyeOff, Printer, ExternalLink } from 'lucide-react';
 import { User, UserRole } from '@/types';
 import { MockService } from '@/services/mockService';
 
@@ -42,6 +42,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
     hasCameraRental?: boolean;
     cameraRentalDetails?: string;
     recordingDays?: number;
+    customClause?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
         let rental = false;
         let details = '';
         let days = 7;
+        let clause = '';
         if (typeof window !== 'undefined') {
           try {
             const raw = localStorage.getItem('atalaia_integrator_plan_default');
@@ -68,17 +70,19 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
               if (parsed.hasCameraRental !== undefined) rental = Boolean(parsed.hasCameraRental);
               if (parsed.cameraRentalDetails) details = parsed.cameraRentalDetails;
               if (parsed.recordingDays !== undefined) days = Number(parsed.recordingDays);
+              if (parsed.customClause) clause = parsed.customClause;
             }
           } catch (_) {}
         }
         setIntegratorDetails({
-          name: 'ServCam, plataforma tecnológica de gestão, vinculada à Alien Monitoramento Eletrônico Ltda.',
+          name: 'Alien Monitoramento Eletrônico Ltda.',
           cnpj: '51.482.661/0001-31',
           address: 'Avenida Josué di Bernardi, nº 185, sala 27, Campinas, São José – SC',
           singlePlanPrice: price,
           hasCameraRental: rental,
           cameraRentalDetails: details,
-          recordingDays: days
+          recordingDays: days,
+          customClause: clause
         });
         return;
       }
@@ -90,6 +94,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
         let rental = user.hasCameraRental !== undefined ? Boolean(user.hasCameraRental) : false;
         let details = user.cameraRentalDetails || '';
         let days = user.recordingDays !== undefined ? Number(user.recordingDays) : 7;
+        let clause = user.customClause || '';
 
         if (user.address && typeof user.address === 'string' && user.address.trim().startsWith('{')) {
           try {
@@ -98,6 +103,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
             if (p.hasCameraRental !== undefined) rental = Boolean(p.hasCameraRental);
             if (p.cameraRentalDetails !== undefined) details = p.cameraRentalDetails;
             if (p.recordingDays !== undefined) days = Number(p.recordingDays);
+            if (p.customClause !== undefined) clause = p.customClause;
           } catch (_) {}
         }
 
@@ -110,22 +116,20 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
               if (p.hasCameraRental !== undefined) rental = Boolean(p.hasCameraRental);
               if (p.cameraRentalDetails !== undefined) details = p.cameraRentalDetails;
               if (p.recordingDays !== undefined) days = Number(p.recordingDays);
+              if (p.customClause !== undefined) clause = p.customClause;
             }
           } catch (_) {}
         }
 
-        if (intName.toLowerCase().includes('alien')) {
-          setIntegratorDetails(null);
-          return;
-        }
         setIntegratorDetails({
-          name: intName || 'Empresa Integradora Parceira',
+          name: intName || 'Alien Monitoramento Eletrônico Ltda.',
           cnpj: user.cnpj || '51.482.661/0001-31',
           address: user.address && !user.address.trim().startsWith('{') ? user.address : 'Avenida Josué di Bernardi, nº 185, sala 27, Campinas, São José – SC',
           singlePlanPrice: price,
           hasCameraRental: rental,
           cameraRentalDetails: details,
-          recordingDays: days
+          recordingDays: days,
+          customClause: clause
         });
         return;
       }
@@ -154,6 +158,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
             let rental = matched.hasCameraRental !== undefined ? Boolean(matched.hasCameraRental) : false;
             let details = matched.cameraRentalDetails || '';
             let days = matched.recordingDays !== undefined ? Number(matched.recordingDays) : 7;
+            let clause = matched.customClause || '';
 
             if (matched.address && typeof matched.address === 'string' && matched.address.trim().startsWith('{')) {
               try {
@@ -162,6 +167,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
                 if (p.hasCameraRental !== undefined) rental = Boolean(p.hasCameraRental);
                 if (p.cameraRentalDetails !== undefined) details = p.cameraRentalDetails;
                 if (p.recordingDays !== undefined) days = Number(p.recordingDays);
+                if (p.customClause !== undefined) clause = p.customClause;
               } catch (_) {}
             }
 
@@ -174,6 +180,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
                   if (p.hasCameraRental !== undefined) rental = Boolean(p.hasCameraRental);
                   if (p.cameraRentalDetails !== undefined) details = p.cameraRentalDetails;
                   if (p.recordingDays !== undefined) days = Number(p.recordingDays);
+                  if (p.customClause !== undefined) clause = p.customClause;
                 }
               } catch (_) {}
             }
@@ -186,7 +193,8 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
                 singlePlanPrice: price,
                 hasCameraRental: rental,
                 cameraRentalDetails: details,
-                recordingDays: days
+                recordingDays: days,
+                customClause: clause
               });
               return;
             }
@@ -198,6 +206,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
         let defaultRental = false;
         let defaultDetails = '';
         let defaultDays = 7;
+        let defaultClause = '';
         if (typeof window !== 'undefined') {
           try {
             const raw = localStorage.getItem('atalaia_integrator_plan_default');
@@ -207,17 +216,19 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
               if (p.hasCameraRental !== undefined) defaultRental = Boolean(p.hasCameraRental);
               if (p.cameraRentalDetails) defaultDetails = p.cameraRentalDetails;
               if (p.recordingDays !== undefined) defaultDays = Number(p.recordingDays);
+              if (p.customClause) defaultClause = p.customClause;
             }
           } catch (_) {}
         }
         setIntegratorDetails({
-          name: 'ServCam, plataforma tecnológica de gestão, vinculada à Alien Monitoramento Eletrônico Ltda.',
+          name: 'Alien Monitoramento Eletrônico Ltda.',
           cnpj: '51.482.661/0001-31',
           address: 'Avenida Josué di Bernardi, nº 185, sala 27, Campinas, São José – SC',
           singlePlanPrice: defaultPrice,
           hasCameraRental: defaultRental,
           cameraRentalDetails: defaultDetails,
-          recordingDays: defaultDays
+          recordingDays: defaultDays,
+          customClause: defaultClause
         });
       } catch (e) {
         console.error(e);
@@ -233,7 +244,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
     return () => window.removeEventListener('atalaia:plan_config_changed', handlePlanChange);
   }, [user]);
 
-  const contractorName = integratorDetails?.name || 'ServCam, plataforma tecnológica de gestão, vinculada à Alien Monitoramento Eletrônico Ltda.';
+  const contractorName = integratorDetails?.name || 'Alien Monitoramento Eletrônico Ltda.';
   const contractorCnpj = integratorDetails?.cnpj || '51.482.661/0001-31';
   const contractorAddress = integratorDetails?.address || 'Avenida Josué di Bernardi, nº 185, sala 27, Campinas, São José – SC';
 
@@ -256,6 +267,28 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
     : (integratorDetails?.recordingDays !== undefined
       ? Number(integratorDetails.recordingDays)
       : (user.role === UserRole.INTEGRATOR && user.recordingDays !== undefined ? Number(user.recordingDays) : 7));
+
+  const customContractClause = user.customClause ||
+    integratorDetails?.customClause ||
+    (typeof window !== 'undefined' ? (
+      (() => {
+        try {
+          if (user?.id) {
+            const rawUserPlan = localStorage.getItem(`atalaia_integrator_plan_${user.id}`);
+            if (rawUserPlan) {
+              const p = JSON.parse(rawUserPlan);
+              if (p.customClause) return p.customClause;
+            }
+          }
+          const defaultPlan = localStorage.getItem('atalaia_integrator_plan_default');
+          if (defaultPlan) {
+            const p = JSON.parse(defaultPlan);
+            if (p.customClause) return p.customClause;
+          }
+        } catch (_) {}
+        return '';
+      })()
+    ) : '') || '';
 
   // Simulated metadata for digital trace audit
   const [metadata, setMetadata] = useState({
@@ -422,6 +455,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
       localStorage.setItem(`atalaia_contract_signed_${user.id}`, JSON.stringify(payload));
       setSignatureRecord(payload);
       setLoading(false);
+      MockService.notifyContractSigned(user, payload).catch(() => {});
       if (onSignComplete) {
         onSignComplete(payload);
       }
@@ -437,37 +471,50 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
     }
   };
 
-  const downloadPrintableReceipt = () => {
+  const openPrintableWindow = () => {
     if (!signatureRecord) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Por favor, permita pop-ups no seu navegador para abrir o contrato em nova janela.');
+      return;
+    }
 
-    const htmlContent = `<!DOCTYPE html>
+    const htmlContent = generateContractHtml();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
+  const generateContractHtml = () => {
+    if (!signatureRecord) return '';
+    return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Comprovante Contrato Atalaia - ${signatureRecord.name}</title>
+  <title>Contrato de Adesão Integral ServCam - ${signatureRecord.name}</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: #1a1a1a;
-      line-height: 1.5;
-      background-color: #f7f9fa;
+      line-height: 1.6;
+      background-color: #f8fafc;
       margin: 0;
-      padding: 40px 16px;
+      padding: 30px 16px;
     }
     .document-card {
-      max-width: 800px;
+      max-width: 850px;
       margin: 0 auto;
       background: #ffffff;
-      border: 1px solid #e1e8ed;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.05);
       padding: 40px;
     }
     .button-container {
-      max-width: 800px;
+      max-width: 850px;
       margin: 0 auto 20px auto;
       display: flex;
+      gap: 12px;
       justify-content: flex-end;
     }
     .btn {
@@ -475,17 +522,24 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
       color: #000000;
       border: none;
       padding: 12px 24px;
-      font-weight: bold;
+      font-weight: 800;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 15px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      display: flex;
+      font-size: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: inline-flex;
       align-items: center;
       gap: 8px;
     }
     .btn:hover {
       background-color: #00d655;
+    }
+    .btn-secondary {
+      background-color: #0f172a;
+      color: #ffffff;
+    }
+    .btn-secondary:hover {
+      background-color: #1e293b;
     }
     .header {
       display: flex;
@@ -507,7 +561,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
       background-color: #e6fffa;
       color: #047857;
       border: 1px solid #34d399;
-      padding: 4px 12px;
+      padding: 6px 14px;
       border-radius: 9999px;
       font-size: 11px;
       font-weight: 800;
@@ -521,7 +575,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
     }
     .subtitle {
       color: #64748b;
-      font-size: 14px;
+      font-size: 13px;
       margin-bottom: 30px;
     }
     .grid {
@@ -594,24 +648,28 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
       padding: 6px;
     }
     .contract-text {
-      background-color: #f8fafc;
+      background-color: #ffffff;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
-      padding: 24px;
-      font-size: 12px;
-      color: #334155;
-      height: 300px;
-      overflow-y: auto;
+      padding: 28px;
+      font-size: 13px;
+      color: #1e293b;
+      height: auto;
+      max-height: none;
+      overflow: visible;
       margin-bottom: 30px;
       font-family: inherit;
+      line-height: 1.6;
     }
     .section-title {
       font-weight: 800;
       color: #0f172a;
       border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 4px;
-      margin-top: 16px;
-      margin-bottom: 8px;
+      padding-bottom: 6px;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      font-size: 13px;
     }
     .footer {
       border-top: 1px solid #e2e8f0;
@@ -622,6 +680,10 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
       line-height: 1.6;
     }
     @media print {
+      @page {
+        size: A4 portrait;
+        margin: 12mm 15mm;
+      }
       body {
         background-color: #ffffff;
         padding: 0;
@@ -630,9 +692,17 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
         border: none;
         box-shadow: none;
         padding: 0;
+        max-width: 100%;
       }
       .button-container {
         display: none !important;
+      }
+      .contract-text {
+        border: none;
+        padding: 0;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
       }
     }
   </style>
@@ -642,22 +712,22 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
   <div class="button-container">
     <button class="btn" onclick="window.print()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-printer"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-      Imprimir Comprovante (Ctrl + P)
+      Imprimir / Salvar PDF
     </button>
   </div>
 
   <div class="document-card">
     <div class="header">
-      <div class="brand">SERVCAM <span>PLATAFORMA</span></div>
+      <div class="brand">SERVCAM <span>PLATAFORMA SAAS</span></div>
       <div class="badge">Assinado Digitalmente</div>
     </div>
 
-    <h1 class="title">Contrato de Adesão Assinado</h1>
-    <div class="subtitle">Este documento confirma eletronicamente a concordância do morador aos termos de licenciamento de uso da plataforma SaaS ServCam.</div>
+    <h1 class="title">Contrato de Adesão Integral Assinado</h1>
+    <div class="subtitle">Este documento confirma a concordância formal aos termos de licenciamento de uso da plataforma SaaS ServCam com validade jurídica de acordo com a legislação brasileira.</div>
 
     <div class="grid">
       <div class="card-meta">
-        <div class="card-meta-title">Auditoria e Validade Jurídica</div>
+        <div class="card-meta-title">Auditoria e Validade Jurídica Digital</div>
         
         <div class="meta-row">
           <span class="meta-lbl">Nome do Signatário:</span>
@@ -696,72 +766,78 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
       </div>
 
       <div class="signature-box">
-        <div class="signature-box-title">Assinatura Digital Capturada</div>
+        <div class="signature-box-title">Assinatura Biométrica Capturada</div>
         <img class="signature-image" src="${signatureRecord.signatureImage}" alt="Assinatura Eletrônica" />
-        <div style="font-size: 9px; color: #64748b; margin-top: 10px; font-family: monospace; text-align: center;">ID-AUTENTICAÇÃO: SHA256-SERVCAM-${Math.floor(Math.random() * 900000 + 100000)}</div>
+        <div style="font-size: 9px; color: #94a3b8; margin-top: 10px; font-family: monospace; text-align: center;">CÓDIGO DE INTEGRIDADE SHA256:<br>SERVCAM-${Math.floor(Math.random() * 900000 + 100000)}</div>
       </div>
     </div>
 
-    <div class="card-meta-title" style="margin-bottom: 8px;">Termos Contratuais íntegros Aceitos</div>
+    <div class="card-meta-title" style="margin-bottom: 8px;">Termos Contratuais Integrais (${customContractClause ? '16 Cláusulas na Íntegra' : '15 Cláusulas na Íntegra'})</div>
     <div class="contract-text">
-      <div class="section-title">📄 CONTRATO DE ADESÃO – SERVCAM (SAAS)</div>
+      <div class="section-title">📄 CONTRATO DE ADESÃO À PLATAFORMA SERVCAM (SAAS)</div>
       
-      <div class="section-title">1. PARTES CONTRATANTES</div>
-      <p><strong>CONTRATADA (PLATAFORMA):</strong> ${contractorName}, inscrita no CNPJ nº ${contractorCnpj}, com sede na ${contractorAddress}.</p>
-      <p><strong>CONTRATANTE (USUÁRIO):</strong> ${signatureRecord.name}, de CPF/CNPJ n. ${signatureRecord.document}, devidamente cadastrado na plataforma ServCam, que adere ao presente contrato mediante aceite digital.</p>
+      <div class="section-title">1. PARTES CONTRATANTES E DEFINIÇÕES</div>
+      <p><strong>CONTRATADA (OPERADOR DA PLATAFORMA):</strong> ${contractorName}, inscrita no CNPJ nº ${contractorCnpj}, com sede na ${contractorAddress}, doravante denominada <strong>OPERADOR DA PLATAFORMA</strong> ou simplesmente <strong>CONTRATADA</strong>.</p>
+      <p><strong>CONTRATANTE (USUÁRIO FINAL):</strong> ${signatureRecord.name}, de CPF/CNPJ nº ${signatureRecord.document}, telefone ${signatureRecord.phone || 'não informado'}, devidamente cadastrado para acesso à Plataforma ServCam, doravante denominado <strong>CONTRATANTE</strong>.</p>
+      <p><strong>PLATAFORMA SERVCAM:</strong> O termo <strong>ServCam</strong> refere-se exclusivamente à plataforma tecnológica e sistema Software as a Service (SaaS) de gestão e transmissão de imagens disponibilizado e operado pela <strong>CONTRATADA (OPERADOR DA PLATAFORMA)</strong> ao <strong>CONTRATANTE</strong>.</p>
 
       <div class="section-title">2. OBJETO DO CONTRATO</div>
-      <p>O presente contrato tem por objeto a licença de uso da plataforma digital ServCam, sistema SaaS destinado à gestão, registro e integração de eventos.</p>
-      <p>A plataforma atua exclusivamente como infraestrutura tecnológica de comunicação e gestão de eventos, não se caracterizando como empresa de vigilância.</p>
+      <p>O presente contrato tem por objeto o licenciamento de uso da <strong>Plataforma Tecnológica SaaS ServCam</strong>, fornecido e operacionalizado pela <strong>CONTRATADA (OPERADOR DA PLATAFORMA)</strong> ao <strong>CONTRATANTE</strong>, destinado ao monitoramento, transmissão ao vivo, registro, gestão e armazenamento seguro de gravações de câmeras.</p>
+      <p>A <strong>Plataforma ServCam</strong> atua exclusivamente como infraestrutura tecnológica de software de comunicação e gestão de imagens utilizada pelo <strong>OPERADOR DA PLATAFORMA (CONTRATADA)</strong>, não se caracterizando a plataforma nem a contratada como empresa de vigilância privada ou segurança ostensiva.</p>
 
-      <div class="section-title">3. NATUREZA DO SERVIÇO (SAAS)</div>
-      <p>O ServCam é um sistema Software as a Service (SaaS), fornecido em ambiente digital, com acesso via internet, sujeito a atualizações contínuas.</p>
-      <p>O uso da plataforma é concedido em caráter: Não exclusivo, Intransferível e Revogável conforme termos deste contrato.</p>
+      <div class="section-title">3. NATUREZA DO SERVIÇO E DA PLATAFORMA (SAAS)</div>
+      <p>A <strong>Plataforma ServCam</strong> é um sistema Software as a Service (SaaS), fornecido em ambiente digital, com acesso via internet, sujeito a atualizações contínuas de segurança e melhorias técnicas. O uso é concedido em caráter não exclusivo, intransferível e revogável conforme os termos estabelecidos neste contrato operado pela <strong>CONTRATADA</strong>.</p>
 
       <div class="section-title">4. PLANO ÚNICO DE ADESÃO E LICENCIAMENTO</div>
       <p>O CONTRATANTE adere ao <strong>Plano Único de Assinatura</strong> no valor mensal recorrente de <strong>R$ ${planPriceFormatted} / mês</strong>.</p>
-      <p><strong>4.1 Serviços e Cobertura Inclusos:</strong> Acesso total à plataforma tecnológica SaaS para monitoramento, transmissão ao vivo e gestão de imagens, histórico de gravações em nuvem, recebimento de notificações e suporte técnico da plataforma.</p>
-      <p><strong>4.2 Locação de Equipamentos (Câmeras):</strong> ${isCameraRentalIncluded ? `<strong>SIM, LOCAÇÃO INCLUSA</strong>. O presente plano contempla a locação e disponibilização das câmeras e infraestrutura técnica fornecidas e assistidas pelo integrador parceiro.${rentalNotes ? ` Especificações dos equipamentos alugados: ${rentalNotes}.` : ''}` : `<strong>NÃO INCLUSA</strong>. O CONTRATANTE utilizará câmeras e infraestrutura próprias homologadas e compatíveis com a plataforma ServCam.`}</p>
-      <p><strong>4.3 Período de Gravação e Retenção em Nuvem:</strong> ${recordingRetentionDays === 0 ? '<strong>0 DIAS (APENAS TRANSMISSÃO AO VIVO)</strong>. A plataforma fornecerá transmissão em tempo real das câmeras, sem armazenamento contínuo ou retenção de histórico de imagens gravadas nos servidores em nuvem.' : `<strong>${recordingRetentionDays} ${recordingRetentionDays === 1 ? 'DIA' : 'DIAS'} DE GRAVAÇÃO CONTÍNUA EM NUVEM</strong>. O plano assegura retenção e histórico contínuo das gravações em nuvem pelos últimos ${recordingRetentionDays} dias com alta disponibilidade e acesso a downloads.`}</p>
+      <p><strong>4.1 Serviços e Cobertura Inclusos:</strong> Acesso total à plataforma tecnológica SaaS para monitoramento ao vivo, gestão de câmeras, notificações e suporte técnico contínuo.</p>
+      <p><strong>4.2 Locação de Equipamentos (Câmeras):</strong> ${isCameraRentalIncluded ? `<strong>SIM, LOCAÇÃO INCLUSA</strong>. O presente plano contempla a locação e disponibilização das câmeras e infraestrutura técnica mantidas pelo integrador parceiro.${rentalNotes ? ` Especificações dos Equipamentos em Locação: <strong><em>${rentalNotes}</em></strong>.` : ''}` : `<strong>NÃO INCLUSA</strong>. O CONTRATANTE utilizará câmeras e infraestrutura próprias homologadas e compatíveis com a plataforma ServCam.`}</p>
+      <p><strong>4.3 Período de Gravação e Retenção em Nuvem:</strong> ${recordingRetentionDays === 0 ? '<strong>0 DIAS (APENAS TRANSMISSÃO AO VIVO)</strong>. Transmissão em tempo real sem armazenamento contínuo ou retenção de histórico de imagens em nuvem.' : `<strong>${recordingRetentionDays} ${recordingRetentionDays === 1 ? 'DIA' : 'DIAS'} DE GRAVAÇÃO CONTÍNUA EM NUVEM</strong>. O plano assegura retenção contínua e histórico dos últimos ${recordingRetentionDays} dias de gravações em nuvem.`}</p>
 
       <div class="section-title">5. CONDIÇÕES DE PAGAMENTO</div>
-      <p>A contratação é regida por cobrança mensal recorrente automática no valor estipulado de <strong>R$ ${planPriceFormatted} / mês</strong>, com vencimento conforme data de adesão do usuário. O pagamento poderá ser realizado via PIX, boleto bancário ou cartão de crédito. Em caso de inadimplência, poderá ocorrer suspensão temporária do acesso até a devida regularização.</p>
+      <p>A contratação é regida por cobrança mensal recorrente no valor de <strong>R$ ${planPriceFormatted} / mês</strong>, com vencimento conforme data de adesão. O pagamento poderá ser efetuado via PIX, boleto bancário ou cartão de crédito. Em caso de inadimplência, poderá ocorrer suspensão temporária do acesso até a devida regularização.</p>
 
       <div class="section-title">6. ADESÃO E ACEITE DIGITAL</div>
-      <p>A adesão à plataforma ocorre mediante: Cadastro do usuário, Aceite eletrônico deste contrato e Registro de data, hora e identificação digital (IP e logs do sistema). Este aceite possui validade jurídica plena, conforme legislação vigente de assinaturas eletrônicas no Brasil.</p>
+      <p>A adesão ocorre mediante cadastro e aceite eletrônico com registro de data, hora e dados de auditoria digital (IP: ${signatureRecord.ipAddress}, OS: ${signatureRecord.os}, Navegador: ${signatureRecord.browser}). Este aceite possui validade jurídica plena nos termos da Lei Federal nº 14.063/2020 e da MP nº 2.200-2/2001.</p>
 
       <div class="section-title">7. OBRIGAÇÕES DO USUÁRIO</div>
-      <p>O CONTRATANTE compromete-se a: Utilizar a plataforma de forma lícita e responsável, Não inserir informações falsas, fraudulentas ou maliciosas, Manter sigilo de suas credenciais de acesso, Não tentar interferir, invadir ou comprometer a plataforma e Utilizar os dados exclusivamente para fins legítimos de gestão.</p>
+      <p>O CONTRATANTE compromete-se a: Utilizar a plataforma de forma lícita e responsável, Não inserir informações falsas ou maliciosas, Manter sigilo de suas credenciais de acesso, Não tentar interferir ou invadir a plataforma e utilizar os dados exclusivamente para fins legítimos.</p>
 
       <div class="section-title">8. OBRIGAÇÕES DA PLATAFORMA</div>
-      <p>A CONTRATADA compromete-se a: Disponibilizar a plataforma conforme plano contratado, Manter funcionamento dentro de padrões técnicos razoáveis, Realizar atualizações e melhorias contínuas, Proteger dados dos usuários conforme legislação aplicável e Oferecer suporte conforme nível do plano contratado.</p>
+      <p>A CONTRATADA compromete-se a: Disponibilizar a plataforma conforme plano contratado, Manter o sistema funcionando dentro de padrões técnicos razoáveis, Realizar atualizações contínuas de segurança, Proteger dados dos usuários e Oferecer suporte técnico.</p>
 
       <div class="section-title">9. DISPONIBILIDADE E MANUTENÇÃO</div>
-      <p>A plataforma poderá: Passar por atualizações técnicas e melhorias contínuas, Sofrer interrupções temporárias para manutenção e Alterar ou evoluir funcionalidades sem aviso prévio, desde que não prejudique o funcionamento essencial do serviço.</p>
+      <p>A plataforma poderá passar por atualizações técnicas e manutenções programadas para melhoria da infraestrutura, comprometendo-se ao pronto restabelecimento sem prejuízo das funções essenciais do serviço.</p>
 
       <div class="section-title">10. LIMITAÇÃO DE RESPONSABILIDADE</div>
-      <p>A plataforma ServCam não se responsabiliza por: Falhas de internet ou energia do usuário, Uso indevido da plataforma por terceiros, Interpretação incorreta de alertas ou informações, Danos indiretos decorrentes do uso da plataforma e Eventos externos fora do controle tecnológico do sistema.</p>
+      <p>A plataforma ServCam não se responsabiliza por: Falhas de internet ou energia elétrica no local do usuário, Uso indevido da plataforma por terceiros decorrente do fornecimento de senhas pelo contratante, e Eventos externos fora do controle tecnológico do sistema.</p>
 
-      <div class="section-title">11. RESCISÃO E CANCELAMENTO</div>
-      <p>O usuário poderá cancelar seu plano pago a qualquer momento. Não haverá multa para cancelamento de planos mensais sem fidelidade. O acesso permanecerá ativo até o final do ciclo pago. A plataforma poderá suspender ou encerrar contas em caso de violação deste contrato.</p>
+      <div class="section-title">11. PRAZO DE VIGÊNCIA, FIDELIDADE E MULTA RESCISÓRIA</div>
+      <p>O presente contrato possui <strong>fidelidade mínima obrigatória de 12 (doze) meses</strong> a contar do aceite digital. Em caso de rescisão antecipada pelo CONTRATANTE antes de completados os 12 meses de vigência, incidirá multa compensatória rescisória equivalente a <strong>20% (vinte por cento) do valor total das mensalidades vincendas</strong> até o término do período de fidelidade. Decorrido o prazo inicial de 12 meses, o contrato renova-se automaticamente por tempo indeterminado, podendo ser cancelado com aviso prévio formal de 30 (trinta) dias sem incidência de multa.</p>
 
       <div class="section-title">12. ALTERAÇÕES DO CONTRATO</div>
-      <p>A CONTRATADA poderá alterar este contrato para: Ajustes legais, Melhores operacionais e Evolução da plataforma. Os usuários serão notificados dentro da própria plataforma.</p>
+      <p>A CONTRATADA poderá alterar este contrato para ajustes operacionais ou legais, notificando os usuários com antecedência na própria plataforma.</p>
 
       <div class="section-title">13. PROPRIEDADE INTELECTUAL</div>
-      <p>Todo o sistema ServCam, incluindo software, identidade visual, código, funcionalidades e estrutura lógica, é de propriedade exclusiva da CONTRATADA. É proibida reprodução, cópia ou engenharia reversa.</p>
+      <p>Todo o sistema ServCam, código-fonte, marcas, logotipos e interface visual são de propriedade exclusiva da CONTRATADA. É vedada qualquer reprodução, cópia ou engenharia reversa.</p>
 
       <div class="section-title">14. FORO</div>
       <p>Fica eleito o foro da comarca de São José – SC, para dirimir quaisquer controvérsias oriundas deste contrato, com renúncia a qualquer outro, por mais privilegiado que seja.</p>
 
-      <div class="section-title">15. ASSINATURA ELETRÔNICA</div>
-      <p>O presente contrato é aceito de forma digital pelo usuário no momento do cadastro, tendo plena validade jurídica.</p>
+      <div class="section-title">15. ASSINATURA ELETRÔNICA E VALIDADE JURÍDICA</div>
+      <p>O presente instrumento é assinado e aceito eletronicamente pelo CONTRATANTE no momento do cadastro, constituindo documento probatório com eficácia jurídica plena em todo o território nacional.</p>
+      ${customContractClause ? `
+      <div class="section-title">16. CONDIÇÕES ESPECIAIS E CLÁUSULAS PARTICULARES DO OPERADOR LOCAL</div>
+      <p style="background-color: #f8fafc; border-left: 4px solid #00ff66; padding: 12px 16px; font-weight: 600; color: #0f172a; white-space: pre-wrap; margin-top: 8px;">
+        ${customContractClause}
+      </p>
+      ` : ''}
     </div>
 
     <div class="footer">
-      <strong>Declaração de Integridade Forense Eletrônica</strong><br>
-      Este certificado foi emitido em ambiente de nuvem da ServCam.<br>
-      Campinas, São José – SC, CEP 88101-200. ${contractorName} • CNPJ ${contractorCnpj}
+      <strong>Declaração de Autenticidade Forense Eletrônica</strong><br>
+      Este certificado foi emitido em ambiente de nuvem da ServCam SaaS.<br>
+      Campinas, São José – SC. ${contractorName} • CNPJ ${contractorCnpj}
     </div>
 
   </div>
@@ -770,12 +846,18 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
         window.print();
-      }, 500);
+      }, 600);
     });
   </script>
 </body>
 </html>`;
+  };
 
+  const downloadPrintableReceipt = () => {
+    if (!signatureRecord) return;
+
+    const htmlContent = generateContractHtml();
+    
     // Process down to dynamic data uri blob
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -783,7 +865,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
     // Create transient anchor tag and simulation click to trigger download
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Comprovante_Adesao_Atalaia_${signatureRecord.name.replace(/\\s+/g, '_')}.html`);
+    link.setAttribute('download', `Contrato_Integral_ServCam_${signatureRecord.name.replace(/\s+/g, '_')}.html`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -791,7 +873,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
   };
 
   return (
-    <div id="contrato-adesao-morador" className="print:bg-white print:text-black">
+    <div id="contrato-adesao-cliente" className="print:bg-white print:text-black">
       <style>{`
         @media print {
           /* Clean page setup */
@@ -806,13 +888,13 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
           }
           
           /* Force visibility of the contract module */
-          #contrato-adesao-morador,
-          #contrato-adesao-morador * {
+          #contrato-adesao-cliente,
+          #contrato-adesao-cliente * {
             visibility: visible !important;
           }
           
           /* Position contract perfectly at the top left of the blank paper */
-          #contrato-adesao-morador {
+          #contrato-adesao-cliente {
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
@@ -835,10 +917,10 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
           }
 
           /* Force high-contrast document texts and pure white card bounds */
-          #contrato-adesao-morador .bg-green-950\\/10,
-          #contrato-adesao-morador .bg-black\\/40,
-          #contrato-adesao-morador .bg-\\[\\#030303\\],
-          #contrato-adesao-morador .bg-\\[\\#040404\\] {
+          #contrato-adesao-cliente .bg-green-950\\/10,
+          #contrato-adesao-cliente .bg-black\\/40,
+          #contrato-adesao-cliente .bg-\\[\\#030303\\],
+          #contrato-adesao-cliente .bg-\\[\\#040404\\] {
             background: #ffffff !important;
             background-color: #ffffff !important;
             border-color: #e4e4e7 !important;
@@ -846,7 +928,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
           }
 
           /* Style the digital trace audit trail box cleanly */
-          #contrato-adesao-morador .bg-black\\/40 {
+          #contrato-adesao-cliente .bg-black\\/40 {
             background: #f4f4f5 !important;
             background-color: #f4f4f5 !important;
             border: 1px solid #e4e4e7 !important;
@@ -855,53 +937,53 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
           }
 
           /* Ensure dark biometric signature seal displays perfectly */
-          #contrato-adesao-morador .bg-\\[\\#0c0c0c\\] {
+          #contrato-adesao-cliente .bg-\\[\\#0c0c0c\\] {
             background: #18181b !important;
             background-color: #18181b !important;
             border-color: #3f3f46 !important;
           }
 
           /* Clean border lines */
-          #contrato-adesao-morador .border,
-          #contrato-adesao-morador .border-b,
-          #contrato-adesao-morador .border-t {
+          #contrato-adesao-cliente .border,
+          #contrato-adesao-cliente .border-b,
+          #contrato-adesao-cliente .border-t {
             border-color: #e2e8f0 !important;
           }
 
           /* High density rich black typography */
-          #contrato-adesao-morador h3,
-          #contrato-adesao-morador h4,
-          #contrato-adesao-morador p,
-          #contrato-adesao-morador span,
-          #contrato-adesao-morador li,
-          #contrato-adesao-morador div {
+          #contrato-adesao-cliente h3,
+          #contrato-adesao-cliente h4,
+          #contrato-adesao-cliente p,
+          #contrato-adesao-cliente span,
+          #contrato-adesao-cliente li,
+          #contrato-adesao-cliente div {
             color: #000000 !important;
           }
 
           /* Standardize subtexts for perfect gray-scaling */
-          #contrato-adesao-morador .text-gray-500,
-          #contrato-adesao-morador .text-zinc-500,
-          #contrato-adesao-morador .text-gray-400 {
+          #contrato-adesao-cliente .text-gray-500,
+          #contrato-adesao-cliente .text-zinc-500,
+          #contrato-adesao-cliente .text-gray-400 {
             color: #4b5563 !important;
           }
 
           /* Elegant highlight colored states */
-          #contrato-adesao-morador .text-\\[\\#00ff66\\],
-          #contrato-adesao-morador .text-atalaia-neon {
+          #contrato-adesao-cliente .text-\\[\\#00ff66\\],
+          #contrato-adesao-cliente .text-atalaia-neon {
             color: #047857 !important; /* Premium dark-emerald */
             font-weight: 700 !important;
           }
 
           /* Stamp badges */
-          #contrato-adesao-morador .bg-green-500\\/10 {
+          #contrato-adesao-cliente .bg-green-500\\/10 {
             background-color: #f0fdf4 !important;
             color: #166534 !important;
             border: 1px solid #bbf7d0 !important;
           }
 
           /* Force full contract scroll bodies to print inline, preventing scroll-clipping */
-          #contrato-adesao-morador .max-h-\\[250px\\],
-          #contrato-adesao-morador .overflow-y-auto {
+          #contrato-adesao-cliente .max-h-\\[250px\\],
+          #contrato-adesao-cliente .overflow-y-auto {
             max-height: none !important;
             overflow-y: visible !important;
           }
@@ -925,25 +1007,32 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
             
             <div className="flex flex-col sm:flex-row gap-2 print:hidden">
               <Button 
-                onClick={downloadPrintableReceipt}
-                className="bg-atalaia-neon hover:bg-atalaia-neon/90 text-black flex items-center justify-center gap-1.5 h-10 px-4 font-bold text-xs"
-              >
-                <Download size={15} /> Baixar Comprovante Oficial
-              </Button>
-              <Button 
                 onClick={() => {
                   window.focus();
                   window.print();
                 }}
-                variant="outline"
-                className="border-white/10 hover:bg-white/10 text-white flex items-center justify-center gap-1.5 h-10 px-4 text-xs font-bold"
+                className="bg-atalaia-neon hover:bg-atalaia-neon/90 text-black flex items-center justify-center gap-1.5 h-10 px-4 font-extrabold text-xs shadow-[0_0_15px_rgba(0,255,102,0.2)]"
               >
-                Imprimir Direto
+                <Printer size={15} /> Imprimir / Salvar PDF
+              </Button>
+              <Button 
+                onClick={downloadPrintableReceipt}
+                variant="outline"
+                className="border-white/10 hover:bg-white/10 text-white flex items-center justify-center gap-1.5 h-10 px-4 font-bold text-xs"
+              >
+                <Download size={15} /> Baixar Arquivo HTML / PDF
+              </Button>
+              <Button 
+                onClick={openPrintableWindow}
+                variant="outline"
+                className="border-white/10 hover:bg-white/10 text-white flex items-center justify-center gap-1.5 h-10 px-4 font-bold text-xs"
+              >
+                <ExternalLink size={15} /> Abrir em Nova Janela
               </Button>
               <Button 
                 onClick={handleRevoke}
                 variant="outline"
-                className="text-red-500 border-red-500/10 hover:bg-red-500/10 h-10 px-4 text-xs font-bold"
+                className="text-red-500 border-red-500/20 hover:bg-red-500/10 h-10 px-4 text-xs font-bold"
               >
                 Refazer Assinatura
               </Button>
@@ -1010,29 +1099,142 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
             </div>
           </div>
 
-          {/* Quick collapse contract preview */}
-          <div className="border border-white/5 rounded-2xl bg-[#030303]">
-            <button 
-              onClick={() => setShowFullContract(!showFullContract)}
-              className="w-full flex items-center justify-between p-4 text-xs font-bold text-gray-400 hover:text-white transition-colors"
-            >
-              <span className="flex items-center gap-2">
-                <FileText size={16} /> Ver Contrato de Adesão Assinado
-              </span>
-              <span>{showFullContract ? <EyeOff size={16} /> : <Eye size={16} />}</span>
-            </button>
-            {showFullContract && (
-              <div className="p-4 border-t border-white/5 max-h-[250px] overflow-y-auto text-[11px] text-gray-500 leading-relaxed font-mono space-y-3">
-                <p className="font-extrabold text-white text-xs border-b border-white/5 pb-2">CONTRATO DE ADESÃO – SERVCAM (SAAS)</p>
-                <p><strong>1. PARTES:</strong> CONTRATADA: {contractorName} (CNPJ: {contractorCnpj}). CONTRATANTE: {signatureRecord.name} (Doc: {signatureRecord.document}).</p>
-                <p><strong>2. OBJETO:</strong> Licença de uso da plataforma digital ServCam SaaS para monitoramento, registro e gestão segura de imagens.</p>
-                <p><strong>3. PLANO CONTRATADO:</strong> Plano Único de Assinatura no valor de R$ {planPriceFormatted} / mês.</p>
-                <p><strong>4. LOCAÇÃO DE CÂMERAS:</strong> {isCameraRentalIncluded ? `Inclusa no plano.${rentalNotes ? ` (${rentalNotes})` : ''}` : 'Não inclusa (equipamentos do cliente).'}</p>
-                <p><strong>5. GRAVAÇÃO EM NUVEM:</strong> {recordingRetentionDays === 0 ? '0 dias (Apenas Transmissão Ao Vivo – Sem histórico em nuvem).' : `${recordingRetentionDays} ${recordingRetentionDays === 1 ? 'dia' : 'dias'} de retenção contínua em nuvem.`}</p>
-                <p><strong>6. PAGAMENTO:</strong> Mensalidade recorrente no valor de R$ {planPriceFormatted} / mês.</p>
-                <p className="text-zinc-600 italic">Contrato Assinado Integralmente sob as Condições ServCam - Foro de São José/SC.</p>
+          {/* FULL CONTRACT DISPLAY (NA ÍNTEGRA, SEM BARRA DE ROLAGEM) */}
+          <div className="border border-white/10 rounded-2xl bg-[#030303] p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="text-atalaia-neon" size={20} />
+                <h4 className="text-base font-bold text-white uppercase tracking-tight">
+                  Contrato de Adesão – ServCam (SaaS) — Íntegra do Documento Assinado
+                </h4>
               </div>
-            )}
+              <span className="text-[10px] bg-atalaia-neon/10 text-atalaia-neon border border-atalaia-neon/30 px-3 py-1 rounded-full font-extrabold uppercase tracking-wider">
+                {customContractClause ? '16 Cláusulas na Íntegra' : '15 Cláusulas na Íntegra'}
+              </span>
+            </div>
+
+            <div className="text-xs text-gray-300 leading-relaxed font-sans space-y-5 max-h-[350px] overflow-y-auto pr-3 bg-black/40 p-4 rounded-xl border border-white/5 shadow-inner scrollbar-thin">
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">1. PARTES CONTRATANTES E DEFINIÇÕES</h5>
+                <p className="mb-1"><strong>CONTRATADA (OPERADOR DA PLATAFORMA):</strong> {contractorName}, inscrita no CNPJ nº {contractorCnpj}, com sede na {contractorAddress}, doravante denominada <strong>OPERADOR DA PLATAFORMA</strong> ou simplesmente <strong>CONTRATADA</strong>.</p>
+                <p className="mb-1"><strong>CONTRATANTE (USUÁRIO FINAL):</strong> {signatureRecord.name}, inscrito sob CPF/CNPJ nº {signatureRecord.document}, telefone/WhatsApp {signatureRecord.phone || 'Não informado'}, devidamente cadastrado para acesso à Plataforma ServCam, que aderiu ao presente contrato mediante aceite digital e assinatura biométrica eletrônica.</p>
+                <p><strong>PLATAFORMA SERVCAM:</strong> O termo <strong>ServCam</strong> refere-se exclusivamente à plataforma tecnológica e sistema Software as a Service (SaaS) de gestão e transmissão de imagens disponibilizado e operado pela <strong>CONTRATADA (OPERADOR DA PLATAFORMA)</strong> ao <strong>CONTRATANTE</strong>.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">2. OBJETO DO CONTRATO</h5>
+                <p>O presente contrato tem por objeto o licenciamento de uso da <strong>Plataforma Tecnológica SaaS ServCam</strong>, fornecido e operacionalizado pela <strong>CONTRATADA (OPERADOR DA PLATAFORMA)</strong> ao <strong>CONTRATANTE</strong>, destinado ao monitoramento, transmissão ao vivo, registro, gestão e armazenamento seguro de gravações de câmeras.</p>
+                <p className="mt-1 text-gray-400">A <strong>Plataforma ServCam</strong> atua exclusivamente como infraestrutura tecnológica de software de comunicação e gestão de imagens utilizada pelo <strong>OPERADOR DA PLATAFORMA (CONTRATADA)</strong>, não se caracterizando a plataforma nem a contratada como empresa de vigilância privada ou segurança ostensiva.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">3. NATUREZA DO SERVIÇO E DA PLATAFORMA (SAAS)</h5>
+                <p>A <strong>Plataforma ServCam</strong> é um sistema Software as a Service (SaaS), fornecido em ambiente digital, com acesso via internet, sujeito a atualizações contínuas de segurança e melhorias técnicas. O uso é concedido em caráter não exclusivo, intransferível e revogável conforme os termos estabelecidos neste contrato operado pela <strong>CONTRATADA</strong>.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">4. PLANO ÚNICO DE ADESÃO E LICENCIAMENTO</h5>
+                <p className="mb-2 font-bold text-white">
+                  O CONTRATANTE adere ao <span className="text-atalaia-neon">Plano Único de Assinatura</span> no valor de R$ {planPriceFormatted} / mês.
+                </p>
+                <div className="space-y-2 pl-3 border-l-2 border-atalaia-neon/40 text-[11px] text-gray-300">
+                  <p>
+                    <strong>4.1 Serviços e Cobertura Inclusos:</strong> Acesso total à plataforma tecnológica SaaS para monitoramento ao vivo, gestão de câmeras, notificações e suporte técnico.
+                  </p>
+                  <p>
+                    <strong>4.2 Locação de Equipamentos (Câmeras):</strong> {isCameraRentalIncluded ? (
+                      <span>
+                        SIM, LOCAÇÃO INCLUSA. O presente plano contempla a disponibilização das câmeras e infraestrutura mantidas pelo integrador parceiro.
+                        {rentalNotes && (
+                          <span className="block mt-1 text-emerald-300 font-bold italic text-xs bg-emerald-950/40 border border-emerald-500/30 p-2 rounded-lg">
+                            Equipamentos em Locação: <strong><em>"{rentalNotes}"</em></strong>
+                          </span>
+                        )}
+                      </span>
+                    ) : 'NÃO INCLUSA. O CONTRATANTE utilizará câmeras e infraestrutura próprias homologadas e compatíveis com o ServCam.'}
+                  </p>
+                  <p>
+                    <strong>4.3 Período de Gravação e Retenção em Nuvem:</strong> {recordingRetentionDays === 0 ? '0 DIAS (APENAS TRANSMISSÃO AO VIVO). Transmissão em tempo real sem histórico de gravação em nuvem.' : `${recordingRetentionDays} ${recordingRetentionDays === 1 ? 'DIA' : 'DIAS'} DE GRAVAÇÃO CONTÍNUA EM NUVEM. O plano assegura retenção contínua dos vídeos pelos últimos ${recordingRetentionDays} dias.`}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">5. CONDIÇÕES DE PAGAMENTO</h5>
+                <p>A contratação é regida por cobrança mensal recorrente no valor estipulado de R$ {planPriceFormatted} / mês. O pagamento poderá ser efetuado via PIX, boleto bancário ou cartão de crédito. Em caso de inadimplência, poderá ocorrer suspensão temporária do acesso até a devida regularização.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">6. ADESÃO E ACEITE DIGITAL</h5>
+                <p>A adesão ocorre por cadastro e aceite eletrônico com registro de IP ({signatureRecord.ipAddress}), data e hora ({signatureRecord.timestamp}), sistema operacional ({signatureRecord.os}), navegador ({signatureRecord.browser}) e desenho de assinatura digital. Este aceite possui plena validade jurídica perante a legislação brasileira de assinaturas eletrônicas (Lei Federal nº 14.063/2020 e Marco Civil da Internet - Lei nº 12.965/2014).</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">7. OBRIGAÇÕES DO USUÁRIO</h5>
+                <p>O CONTRATANTE compromete-se a: utilizar a plataforma de forma lícita, não inserir informações falsas ou maliciosas, manter sigilo de suas credenciais de acesso, não tentar invadir ou comprometer o sistema e utilizar os dados exclusivamente para fins legítimos de gestão.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">8. OBRIGAÇÕES DA PLATAFORMA</h5>
+                <p>A CONTRATADA compromete-se a: disponibilizar a plataforma conforme plano contratado, manter o sistema dentro de padrões técnicos adequados, realizar atualizações contínuas de segurança, proteger os dados do usuário e oferecer suporte técnico.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">9. DISPONIBILIDADE E MANUTENÇÃO</h5>
+                <p>A plataforma poderá passar por atualizações técnicas e manutenções programadas, garantindo-se o compromisso de restabelecimento célere sem prejuízo das funções essenciais do serviço.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">10. LIMITAÇÃO DE RESPONSABILIDADE</h5>
+                <p>A plataforma ServCam não se responsabiliza por: falhas de conexão de internet ou energia elétrica no local do usuário, uso indevido por terceiros decorrente do fornecimento de senhas pelo próprio contratante, e eventos externos fora do controle tecnológico do sistema.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">11. PRAZO DE VIGÊNCIA, FIDELIDADE E MULTA RESCISÓRIA</h5>
+                <p>O presente contrato possui <strong>fidelidade mínima obrigatória de 12 (doze) meses</strong> a contar do aceite digital. Em caso de cancelamento antecipado pelo CONTRATANTE antes do término dos 12 meses, incidirá multa compensatória rescisória equivalente a <strong>20% (vinte por cento) do valor total das mensalidades vincendas</strong> até o término da fidelidade. Após os 12 meses, a renovação é automática por prazo indeterminado com cancelamento livre mediante aviso prévio de 30 dias.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">12. ALTERAÇÕES DO CONTRATO</h5>
+                <p>A CONTRATADA poderá atualizar as condições deste contrato para adequações operacionais ou legais, comunicando o usuário através de notificação na própria plataforma.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">13. PROPRIEDADE INTELECTUAL</h5>
+                <p>Todo o código-fonte, marcas, logotipos, interface visual e arquitetura do ServCam são de propriedade exclusiva da CONTRATADA. É terminantemente proibida qualquer reprodução, cópia ou engenharia reversa do sistema.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">14. FORO</h5>
+                <p>Fica eleito o foro da comarca de São José – SC, para dirimir quaisquer controvérsias oriundas deste contrato, com renúncia expressa a qualquer outro, por mais privilegiado que seja.</p>
+              </div>
+
+              <div>
+                <h5 className="font-extrabold text-atalaia-neon text-sm uppercase mb-1">15. ASSINATURA ELETRÔNICA E VALIDADE JURÍDICA</h5>
+                <p>O presente instrumento é aceito e assinado eletronicamente pelo CONTRATANTE na data e hora indicadas, constituindo título executivo extrajudicial com eficácia jurídica plena em todo o território nacional.</p>
+              </div>
+
+              {customContractClause && (
+                <div className="p-4 rounded-xl bg-atalaia-neon/5 border border-atalaia-neon/30 space-y-2 mt-4">
+                  <h5 className="font-extrabold text-atalaia-neon text-sm uppercase flex items-center gap-2">
+                    <Shield size={16} />
+                    16. CONDIÇÕES ESPECIAIS E CLÁUSULAS PARTICULARES DO OPERADOR LOCAL
+                  </h5>
+                  <p className="text-xs text-white leading-relaxed font-sans whitespace-pre-wrap pl-3 border-l-2 border-atalaia-neon">
+                    {customContractClause}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] text-gray-500 font-mono">
+              <div>
+                <strong>Certificado Digital de Integridade:</strong> SHA256-SERVCAM-{signatureRecord.timestamp.replace(/\D/g, '')}
+              </div>
+              <div>
+                Emitido por ServCam SaaS • São José / SC
+              </div>
+            </div>
           </div>
         </Card>
       ) : (
@@ -1059,20 +1261,21 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
             </div>
             
             <div>
-              <h4 className="font-bold text-white border-l-2 border-atalaia-neon pl-2 mb-2 text-xs">1. PARTES CONTRATANTES</h4>
-              <p className="mb-2"><strong>CONTRATADA (PLATAFORMA):</strong> {contractorName}, inscrita no CNPJ nº {contractorCnpj}, com sede na {contractorAddress}.</p>
-              <p><strong>CONTRATANTE (USUÁRIO):</strong> Pessoa física ou jurídica devidamente cadastrada na plataforma ServCam, que adere ao presente contrato mediante aceite digital de assinatura eletrônica.</p>
+              <h4 className="font-bold text-white border-l-2 border-atalaia-neon pl-2 mb-2 text-xs">1. PARTES CONTRATANTES E DEFINIÇÕES</h4>
+              <p className="mb-2"><strong>CONTRATADA (OPERADOR DA PLATAFORMA):</strong> {contractorName}, inscrita no CNPJ nº {contractorCnpj}, com sede na {contractorAddress}, doravante denominada <strong>OPERADOR DA PLATAFORMA</strong> ou <strong>CONTRATADA</strong>.</p>
+              <p className="mb-2"><strong>CONTRATANTE (USUÁRIO FINAL):</strong> Pessoa física ou jurídica devidamente cadastrada para acesso à Plataforma ServCam, que adere ao presente contrato mediante aceite digital de assinatura eletrônica.</p>
+              <p><strong>PLATAFORMA SERVCAM:</strong> O termo <strong>ServCam</strong> refere-se exclusivamente à plataforma tecnológica e sistema Software as a Service (SaaS) de gestão e transmissão de imagens disponibilizado e operado pela <strong>CONTRATADA (OPERADOR DA PLATAFORMA)</strong>.</p>
             </div>
 
             <div>
               <h4 className="font-bold text-white border-l-2 border-atalaia-neon pl-2 mb-2 text-xs">2. OBJETO DO CONTRATO</h4>
-              <p>O presente contrato tem por objeto a licença de uso da plataforma digital ServCam, sistema SaaS destinado ao monitoramento, registro e armazenamento seguro de imagens.</p>
-              <p className="mt-2 font-bold text-yellow-500/80">A plataforma atua exclusivamente como infraestrutura tecnológica de monitoramento e gestão de imagens.</p>
+              <p>O presente contrato tem por objeto o licenciamento de uso da <strong>Plataforma Tecnológica SaaS ServCam</strong>, fornecido e operacionalizado pela <strong>CONTRATADA (OPERADOR DA PLATAFORMA)</strong> ao <strong>CONTRATANTE</strong>, para monitoramento, transmissão ao vivo, registro e armazenamento seguro de gravações de câmeras.</p>
+              <p className="mt-2 font-bold text-yellow-500/80">A Plataforma ServCam atua exclusivamente como infraestrutura tecnológica de software utilizada pelo OPERADOR DA PLATAFORMA (CONTRATADA).</p>
             </div>
 
             <div>
-              <h4 className="font-bold text-white border-l-2 border-atalaia-neon pl-2 mb-2 text-xs">3. NATUREZA DO SERVIÇO (SAAS)</h4>
-              <p>O ServCam é um sistema Software as a Service (SaaS), fornecido em ambiente digital, com acesso via internet, sujeito a atualizações contínuas, melhorias e evolução de funcionalidades. O uso é concedido em caráter não exclusivo, intransferível e revogável conforme termos deste contrato.</p>
+              <h4 className="font-bold text-white border-l-2 border-atalaia-neon pl-2 mb-2 text-xs">3. NATUREZA DO SERVIÇO E DA PLATAFORMA (SAAS)</h4>
+              <p>A <strong>Plataforma ServCam</strong> é um sistema Software as a Service (SaaS), fornecido em ambiente digital, com acesso via internet, sujeito a atualizações contínuas de segurança e melhorias técnicas. O uso é concedido em caráter não exclusivo, intransferível e revogável conforme termos deste contrato operado pela <strong>CONTRATADA</strong>.</p>
             </div>
 
             <div>
@@ -1093,8 +1296,8 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
                     <span>
                       <strong className="text-emerald-300">SIM, LOCAÇÃO INCLUSA</strong>. O plano contempla a locação e disponibilização das câmeras de monitoramento sob responsabilidade e manutenção técnica do integrador parceiro.
                       {rentalNotes && (
-                        <span className="block mt-1.5 text-zinc-300 font-mono text-[10px] bg-black/40 p-2 rounded border border-emerald-500/20">
-                          Equipamentos e Detalhes: {rentalNotes}
+                        <span className="block mt-1.5 text-emerald-300 font-bold italic text-[11px] bg-black/60 p-2.5 rounded-lg border border-emerald-500/30">
+                          Especificação dos Equipamentos em Locação: <strong><em>"{rentalNotes}"</em></strong>
                         </span>
                       )}
                     </span>
@@ -1150,8 +1353,8 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
             </div>
 
             <div>
-              <h4 className="font-bold text-white border-l-2 border-atalaia-neon pl-2 mb-2 text-xs">11. RESCISÃO E CANCELAMENTO</h4>
-              <p>O usuário poderá solicitar o cancelamento a qualquer momento através do sistema sem multa alguma, cessando nova cobrança para o ciclo seguinte.</p>
+              <h4 className="font-bold text-white border-l-2 border-atalaia-neon pl-2 mb-2 text-xs">11. PRAZO DE VIGÊNCIA, FIDELIDADE E MULTA RESCISÓRIA</h4>
+              <p>O presente contrato possui <strong>fidelidade mínima obrigatória de 12 (doze) meses</strong>. A rescisão antecipada solicitada pelo CONTRATANTE sujeitará o pagamento de multa compensatória rescisória de <strong>20% (vinte por cento) sobre o valor total das mensalidades vincendas</strong> até o término da fidelidade de 12 meses. Após este período inicial, o cancelamento é livre mediante aviso prévio de 30 dias.</p>
             </div>
 
             <div>
@@ -1173,6 +1376,15 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
               <h4 className="font-bold text-white border-l-2 border-atalaia-neon pl-2 mb-2 text-xs">15. ASSINATURA ELETRÔNICA</h4>
               <p>O presente contrato é validado digitalmente pelo usuário final através de clique de aprovação de termos e de desenho de assinatura biométrica virtual.</p>
             </div>
+
+            {customContractClause && (
+              <div>
+                <h4 className="font-bold text-white border-l-2 border-atalaia-neon pl-2 mb-2 text-xs">16. CONDIÇÕES ESPECIAIS E CLÁUSULAS PARTICULARES DO OPERADOR LOCAL</h4>
+                <div className="p-3 bg-atalaia-neon/10 border border-atalaia-neon/30 rounded-xl text-zinc-200 text-[11px] whitespace-pre-wrap leading-relaxed">
+                  {customContractClause}
+                </div>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -1284,7 +1496,7 @@ export const ContractSignature: React.FC<ContractSignatureProps> = ({ user, onSi
                   className="rounded bg-zinc-900 border-white/10 text-atalaia-neon focus:ring-atalaia-neon/40 h-4 w-4"
                 />
                 <span className="text-[11px] text-zinc-400 select-none group-hover:text-white transition-colors">
-                  Declaro que li e aceito integralmente os termos do contrato de adesão Atalaia.
+                  Declaro que li e aceito integralmente os termos do contrato de prestação de serviços ServCam.
                 </span>
               </label>
 

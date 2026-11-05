@@ -18,7 +18,7 @@ export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { 
   
   const variants = {
     primary: "bg-atalaia-neon text-black hover:bg-[#33ff85] shadow-[0_0_10px_rgba(0,255,102,0.3)] hover:shadow-[0_0_20px_rgba(0,255,102,0.5)]",
-    secondary: "bg-atalaia-accent text-white hover:bg-violet-700 shadow-lg",
+    secondary: "bg-atalaia-accent text-white hover:bg-emerald-700 shadow-lg",
     danger: "bg-red-600 text-white hover:bg-red-500 shadow-[0_0_10px_rgba(220,38,38,0.4)]",
     outline: "border border-atalaia-border text-gray-300 hover:border-atalaia-neon hover:text-atalaia-neon bg-transparent"
   };
@@ -66,7 +66,7 @@ export const Badge: React.FC<{ children: React.ReactNode, color?: 'green' | 'red
         red: "bg-red-500/10 text-red-500 border-red-500/20",
         blue: "bg-blue-500/10 text-blue-500 border-blue-500/20",
         yellow: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-        purple: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+        purple: "bg-atalaia-neon/10 text-atalaia-neon border-atalaia-neon/20",
     }
     return (
         <span className={`px-2 py-0.5 rounded text-xs font-medium border ${colors[color]} ${className}`}>

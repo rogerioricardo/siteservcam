@@ -238,6 +238,17 @@ const FreeCameraPagePopup: React.FC = () => {
                     })
                 }}
               />
+            ) : (streamUrl.toLowerCase().includes('.mp4') || streamUrl.toLowerCase().includes('.m3u8')) ? (
+              <video
+                key={reloadKey}
+                src={streamUrl}
+                autoPlay
+                muted
+                loop
+                playsInline
+                controls
+                className="w-full h-full object-contain absolute inset-0 bg-black"
+              />
             ) : (
               <iframe
                 key={reloadKey}
@@ -306,7 +317,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    let target = '/login';
+    if (typeof window !== 'undefined') {
+      const savedLoginUrl = localStorage.getItem('atalaia_last_login_url');
+      const savedIntegratorId = localStorage.getItem('atalaia_last_client_integrator_id');
+      if (savedLoginUrl && (savedLoginUrl.startsWith('/logincliente') || savedLoginUrl.includes('integrator='))) {
+        target = savedLoginUrl;
+      } else if (savedIntegratorId) {
+        target = `/logincliente?integrator=${savedIntegratorId}`;
+      }
+    }
+    return <Navigate to={target} replace />;
   }
   return <>{children}</>;
 };

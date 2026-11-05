@@ -19,8 +19,6 @@ import {
   MessageSquare,
   FileText,
   DollarSign,
-  Smartphone,
-  Download,
   Scale,
   Server,
   Sliders
@@ -107,6 +105,41 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return () => window.removeEventListener('atalaia_chat_unread_count', handleChatUnread);
   }, []);
 
+  const [blockedModalOpen, setBlockedModalOpen] = useState(false);
+
+  // Blocked access check
+  useEffect(() => {
+    if (user && user.approved === false && user.role !== UserRole.ADMIN) {
+      setBlockedModalOpen(true);
+    }
+  }, [user]);
+
+  // Render blocked modal
+  const renderBlockedModal = () => (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
+      <div className="bg-[#050505] border border-red-500/50 rounded-2xl w-full max-w-sm p-8 text-center animate-in zoom-in-95 duration-200 shadow-[0_0_50px_rgba(239,68,68,0.2)]">
+        <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+          <X size={32} />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">Acesso Bloqueado</h2>
+        <p className="text-zinc-400 text-sm mb-8 leading-relaxed">
+          Seu acesso foi bloqueado por questões de segurança. Entre em contato com o administrador do sistema para solicitar a liberação.
+        </p>
+        <button
+          onClick={() => {
+            setBlockedModalOpen(false);
+            logout();
+            navigate('/login');
+          }}
+          className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all"
+        >
+          Entendido
+        </button>
+      </div>
+    </div>
+  );
+
+
   // Effect to apply custom RGB styling only on authorized panels
   useEffect(() => {
     // Define the whitelist of public routes
@@ -178,9 +211,38 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       }
       const isUserIntegrator = user.role === UserRole.INTEGRATOR || (user.email && user.email.toLowerCase().includes('integrador'));
       if (isUserIntegrator) {
-        setPartnerName(user.companyName || user.razaoSocial || user.name || null);
+        const resolvedName = user.companyName || user.razaoSocial || user.name || null;
+        setPartnerName(resolvedName);
         setPartnerLogo(user.companyLogo || null);
-        setPartnerPhone(user.phone || null);
+
+        let resolvedPhone = user.phone || null;
+        if (!resolvedPhone && user.address && typeof user.address === 'string' && user.address.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(user.address);
+            resolvedPhone = parsed.phone || parsed.whatsapp || parsed.brandPhone || parsed.telefone || parsed.celular || null;
+          } catch (_) {}
+        }
+        if (!resolvedPhone && typeof window !== 'undefined' && user.id) {
+          try {
+            const direct = localStorage.getItem(`atalaia_integrator_phone_${user.id}`);
+            if (direct) {
+              resolvedPhone = direct;
+            } else {
+              const phonesMap = JSON.parse(localStorage.getItem('atalaia_integrator_phones') || '{}');
+              resolvedPhone = phonesMap[user.id] || null;
+            }
+          } catch (_) {}
+        }
+        if (!resolvedPhone) {
+          const isAlien = (user.id && String(user.id).toLowerCase().includes('alien')) || 
+                          (resolvedName && String(resolvedName).toLowerCase().includes('alien')) ||
+                          (user.email && String(user.email).toLowerCase().includes('alien'));
+          if (isAlien) {
+            resolvedPhone = '(48) 99206-7665';
+          }
+        }
+        setPartnerPhone(resolvedPhone);
+
         let customRgb = user.customRgb;
         if (!customRgb && typeof window !== 'undefined') {
           customRgb = localStorage.getItem(`atalaia_integrator_custom_rgb_${user.id}`) || null;
@@ -217,9 +279,38 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           }
 
           if (integrator) {
-            setPartnerName(integrator.companyName || integrator.razaoSocial || integrator.name || null);
+            const resolvedName = integrator.companyName || integrator.razaoSocial || integrator.name || null;
+            setPartnerName(resolvedName);
             setPartnerLogo(integrator.companyLogo || null);
-            setPartnerPhone(integrator.phone || null);
+
+            let resolvedPhone = integrator.phone || null;
+            if (!resolvedPhone && integrator.address && typeof integrator.address === 'string' && integrator.address.trim().startsWith('{')) {
+              try {
+                const parsed = JSON.parse(integrator.address);
+                resolvedPhone = parsed.phone || parsed.whatsapp || parsed.brandPhone || parsed.telefone || parsed.celular || null;
+              } catch (_) {}
+            }
+            if (!resolvedPhone && typeof window !== 'undefined' && integrator.id) {
+              try {
+                const direct = localStorage.getItem(`atalaia_integrator_phone_${integrator.id}`);
+                if (direct) {
+                  resolvedPhone = direct;
+                } else {
+                  const phonesMap = JSON.parse(localStorage.getItem('atalaia_integrator_phones') || '{}');
+                  resolvedPhone = phonesMap[integrator.id] || null;
+                }
+              } catch (_) {}
+            }
+            if (!resolvedPhone) {
+              const isAlien = (integrator.id && String(integrator.id).toLowerCase().includes('alien')) || 
+                              (resolvedName && String(resolvedName).toLowerCase().includes('alien')) ||
+                              (integrator.email && String(integrator.email).toLowerCase().includes('alien'));
+              if (isAlien) {
+                resolvedPhone = '(48) 99206-7665';
+              }
+            }
+            setPartnerPhone(resolvedPhone);
+
             let customRgb: string | null | undefined = integrator.customRgb;
             if (!customRgb && integrator.id && typeof window !== 'undefined') {
               customRgb = localStorage.getItem(`atalaia_integrator_custom_rgb_${integrator.id}`);
@@ -256,6 +347,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       }
     };
     fetchPartnerBranding();
+
+    const handleIntegratorUpdate = () => {
+      fetchPartnerBranding();
+    };
+
+    window.addEventListener('atalaia:integrator_updated', handleIntegratorUpdate);
+    window.addEventListener('atalaia:plan_config_changed', handleIntegratorUpdate);
+    window.addEventListener('atalaia:theme_changed', handleIntegratorUpdate);
+
+    return () => {
+      window.removeEventListener('atalaia:integrator_updated', handleIntegratorUpdate);
+      window.removeEventListener('atalaia:plan_config_changed', handleIntegratorUpdate);
+      window.removeEventListener('atalaia:theme_changed', handleIntegratorUpdate);
+    };
   }, [user, activeNeighborhoodId]);
 
   const getPartnerWaUrl = () => {
@@ -271,7 +376,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const partnerWaUrl = getPartnerWaUrl();
 
   const handleLogout = () => {
-    const isResident = user?.role === UserRole.RESIDENT;
     let integratorId = user?.integratorId || '';
 
     if (!integratorId && typeof window !== 'undefined') {
@@ -294,17 +398,35 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       }
     }
 
-    logout();
-
-    if (isResident) {
-      if (integratorId) {
-        navigate(`/logincliente?integrator=${integratorId}`);
-      } else {
-        navigate('/logincliente');
+    if (!integratorId && typeof window !== 'undefined') {
+      const isAlien = (user?.email || '').toLowerCase().includes('alien') || 
+                      (user?.companyName || '').toLowerCase().includes('alien') ||
+                      user?.id === 'a11e9920-6765-4f81-b454-e6778b77ee66' ||
+                      user?.id === 'alienmonitoramento-integrator-id';
+      if (isAlien) {
+        integratorId = 'alienmonitoramento-integrator-id';
       }
-    } else {
-      navigate('/login');
     }
+
+    let targetUrl = '/login';
+    if (integratorId) {
+      targetUrl = `/logincliente?integrator=${integratorId}`;
+    } else if (typeof window !== 'undefined') {
+      const savedUrl = localStorage.getItem('atalaia_last_login_url');
+      if (savedUrl && (savedUrl.startsWith('/logincliente') || savedUrl.includes('integrator='))) {
+        targetUrl = savedUrl;
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('atalaia_last_login_url', targetUrl);
+      if (integratorId) {
+        localStorage.setItem('atalaia_last_client_integrator_id', integratorId);
+      }
+    }
+
+    logout();
+    navigate(targetUrl, { replace: true });
   };
 
   const roleNames: Record<string, string> = {
@@ -353,6 +475,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-[#010101] text-gray-100 flex overflow-hidden">
+      {blockedModalOpen && renderBlockedModal()}
       {/* Sidebar Mobile Overlay */}
       {sidebarOpen && (
         <div 
@@ -437,20 +560,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
-          {/* BOTÃO DE DESTAQUE DO APLICATIVO */}
-          <div className="mb-6 px-2">
-            <a 
-              href="/atalaia-seguranca.apk" 
-              download="atalaia-seguranca.apk"
-              className="flex items-center justify-between gap-2.5 w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-atalaia-neon/15 to-atalaia-neon/5 hover:from-atalaia-neon/30 hover:to-blue-500/10 border border-atalaia-neon/30 hover:border-atalaia-neon text-white font-bold text-sm tracking-wide shadow-[0_0_15px_rgba(0,255,102,0.05)] hover:shadow-[0_0_25px_rgba(0,255,102,0.2)] transition-all duration-300 transform hover:-translate-y-0.5 group"
-            >
-              <div className="flex items-center gap-2">
-                <Smartphone size={16} className="text-atalaia-neon animate-bounce" />
-                <span className="font-sans font-bold">Instalar Aplicativo</span>
-              </div>
-              <Download size={14} className="text-zinc-500 group-hover:text-atalaia-neon transition-colors group-hover:translate-y-0.5" />
-            </a>
-          </div>
 
           <div className="mb-4 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
             Principal
@@ -551,14 +660,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
              </div>
             </Link>
             {partnerName && (
-              <div className="flex items-center gap-1 animate-in fade-in duration-300">
-                <span className="text-zinc-600 text-[9px]">🤝</span>
+              <div className="flex items-center gap-1.5 animate-in fade-in duration-300">
+                <span className="text-zinc-600 text-[9px] hidden sm:inline">🤝</span>
                 <div className="flex items-center gap-1 bg-white/5 border border-atalaia-neon/30 px-2 py-0.5 rounded-lg">
                    {partnerLogo && (partnerLogo.startsWith('http') || partnerLogo.startsWith('data:')) ? (
                      <img referrerPolicy="no-referrer" src={partnerLogo} alt={partnerName} className="w-4 h-4 rounded object-square bg-zinc-800" />
                    ) : null}
                    <span className="text-[9px] font-bold text-atalaia-neon max-w-[95px] truncate uppercase" title={partnerName}>{partnerName}</span>
                 </div>
+                {partnerWaUrl && (
+                  <a
+                    href={partnerWaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-black text-[9px] font-black uppercase tracking-wider shadow-[0_0_8px_rgba(37,211,102,0.3)] hover:scale-105 transition-all shrink-0"
+                    title={`Chamar no WhatsApp (${partnerPhone})`}
+                  >
+                    <MessageSquare size={10} fill="currentColor" />
+                    <span className="hidden sm:inline">WhatsApp</span>
+                  </a>
+                )}
               </div>
             )}
           </div>
@@ -580,15 +701,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               )}
             </Link>
 
-            <a 
-              href="/atalaia-seguranca.apk" 
-              download="atalaia-seguranca.apk"
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-atalaia-neon/10 border border-atalaia-neon/30 text-atalaia-neon text-xs font-bold transition-all shadow-[0_0_10px_rgba(0,255,102,0.1)] active:scale-95 shrink-0"
-              title="Baixar APK"
-            >
-              <Smartphone size={13} className="animate-pulse shrink-0" />
-              <span className="hidden sm:inline">Baixar App</span>
-            </a>
             <button onClick={() => setSidebarOpen(true)} className="p-2 text-gray-400 hover:text-white cursor-pointer">
               {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>

@@ -214,6 +214,8 @@ const CameraStreamPlayer: React.FC<CameraStreamPlayerProps> = React.memo(({
     }
   };
 
+  const isDirectVideo = /\.(mp4|webm|ogv|m3u8)($|\?)/i.test(rawUrl) || rawUrl.includes('.mp4');
+
   return (
     <div 
       ref={containerRef}
@@ -235,6 +237,17 @@ const CameraStreamPlayer: React.FC<CameraStreamPlayerProps> = React.memo(({
                   return `<iframe ${cleanAttrs} style="width:100%; height:100%; position:absolute; inset:0; border:none;" allow="autoplay; encrypted-media; picture-in-picture">`;
                 })
             }}
+          />
+        ) : isDirectVideo ? (
+          // Caso de link direto de vídeo em formato MP4 / HLS / WebM
+          <video 
+            src={rawUrl} 
+            autoPlay 
+            muted 
+            loop 
+            playsInline 
+            controls={false}
+            className="w-full h-full object-cover absolute inset-0 bg-black"
           />
         ) : (
           // Caso padrão (URLs puras ou iframes de provedores que extraímos o link)
@@ -297,7 +310,8 @@ const Cameras: React.FC = () => {
   // States for adding/editing camera
   const [selectedManageHoodId, setSelectedManageHoodId] = useState<string>('');
   const [newCameraName, setNewCameraName] = useState('');
-  const [newCameraCode, setNewCameraCode] = useState('');
+  const [newPlayerUrl, setNewPlayerUrl] = useState('');
+  const [newRtmpUrl, setNewRtmpUrl] = useState('');
   const [newCameraLat, setNewCameraLat] = useState('');
   const [newCameraLng, setNewCameraLng] = useState('');
   const [newCameraPhoto, setNewCameraPhoto] = useState('');
@@ -308,6 +322,8 @@ const Cameras: React.FC = () => {
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [supportMessage, setSupportMessage] = useState('');
   const [sendingSupport, setSendingSupport] = useState(false);
+  const [sendingRtmp, setSendingRtmp] = useState(false);
+  const [rtmpFeedbackModal, setRtmpFeedbackModal] = useState<{ msg: string } | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedCameraForModal, setSelectedCameraForModal] = useState<Camera | null>(null);
   const [modalRotated, setModalRotated] = useState(false);
@@ -430,7 +446,8 @@ const Cameras: React.FC = () => {
   const handleEditCamera = (cam: Camera) => {
       setEditingCameraId(cam.id);
       setNewCameraName(cam.name);
-      setNewCameraCode(cam.iframeCode);
+      setNewPlayerUrl(cam.iframeCode || '');
+      setNewRtmpUrl('');
       setNewCameraLat(cam.lat?.toString() || '');
       setNewCameraLng(cam.lng?.toString() || '');
       setNewCameraPhoto(cam.locationPhotoUrl || '');
@@ -443,7 +460,8 @@ const Cameras: React.FC = () => {
   const handleCancelEdit = () => {
       setEditingCameraId(null);
       setNewCameraName('');
-      setNewCameraCode('');
+      setNewPlayerUrl('');
+      setNewRtmpUrl('');
       setNewCameraLat('');
       setNewCameraLng('');
       setNewCameraPhoto('');
@@ -514,7 +532,7 @@ const Cameras: React.FC = () => {
 
           const createdHood = await MockService.createNeighborhood(
               newHoodName.trim(),
-              newHoodDescription.trim() || 'Monitoramento integrado Atalaia.',
+              newHoodDescription.trim() || 'Monitoramento integrado ServCam.',
               '',
               targetIntegratorId,
               targetIntegratorName
@@ -708,7 +726,7 @@ const Cameras: React.FC = () => {
       try {
           const fileUrl = await fileToDataURL(file);
           await MockService.updateRecordingRequestStatus(requestId, 'COMPLETED', fileUrl);
-          alert('Gravação enviada com sucesso! O status foi alterado para concluído e o morador poderá baixar o arquivo.');
+          alert('Gravação enviada com sucesso! O status foi alterado para concluído e o cliente poderá baixar o arquivo.');
           setUploadingForRequestId(null);
           setRecordingFileName('');
           setRecordingFileBase64('');
@@ -803,6 +821,13 @@ const Cameras: React.FC = () => {
     if (user?.id) {
         loadData();
     }
+    const handleUpdate = () => {
+        loadData();
+    };
+    window.addEventListener('atalaia_cameras_updated', handleUpdate);
+    return () => {
+        window.removeEventListener('atalaia_cameras_updated', handleUpdate);
+    };
   }, [user?.id]);
 
   useEffect(() => {
@@ -1388,12 +1413,18 @@ const Cameras: React.FC = () => {
                                 try {
                                     const lat = newCameraLat ? parseFloat(newCameraLat) : undefined;
                                     const lng = newCameraLng ? parseFloat(newCameraLng) : undefined;
+                                    const playerCodeToSave = newPlayerUrl.trim();
+
+                                    if (!playerCodeToSave) {
+                                        alert('Por favor, informe o link do player (HTTPS).');
+                                        return;
+                                    }
                                     
                                     if (editingCameraId) {
-                                        await MockService.updateCamera(editingCameraId, newCameraName, newCameraCode, lat, lng, newCameraPhoto, newMaintenancePhoto, selectedManageHoodId);
+                                        await MockService.updateCamera(editingCameraId, newCameraName, playerCodeToSave, lat, lng, newCameraPhoto, newMaintenancePhoto, selectedManageHoodId);
                                         alert('Câmera atualizada com sucesso!');
                                     } else {
-                                        await MockService.addCamera(selectedManageHoodId, newCameraName, newCameraCode, lat, lng, newCameraPhoto, newMaintenancePhoto); 
+                                        await MockService.addCamera(selectedManageHoodId, newCameraName, playerCodeToSave, lat, lng, newCameraPhoto, newMaintenancePhoto); 
                                         alert('Câmera adicionada com sucesso!');
                                     }
                                     
@@ -1420,10 +1451,69 @@ const Cameras: React.FC = () => {
                                     )}
                                 </div>
                                 <Input label="Nome da Câmera" value={newCameraName} onChange={e => setNewCameraName(e.target.value)} placeholder="Ex: Câmera Rua X" required />
-                                <div className="space-y-1">
-                                    <Input label="Código Iframe ou Link" value={newCameraCode} onChange={e => setNewCameraCode(e.target.value)} placeholder="https://... ou <iframe... />" />
-                                    <p className="text-[9px] text-amber-500/80 px-1 leading-tight">
-                                        💡 <strong>Atenção MisterServer / Servidores Locais:</strong> Browsers modernos bloqueiam links <code className="bg-black/40 px-1">http://</code> por segurança em sites seguros. Se sua câmera não aparecer, use o botão de <strong>Monitor Externo</strong> que aparecerá no card, ou configure SSL (HTTPS) no seu servidor.
+                                <div className="space-y-3">
+                                    <Input label="Link do Player (HTTPS)" value={newPlayerUrl} onChange={e => setNewPlayerUrl(e.target.value)} placeholder="https://..." />
+                                    
+                                    <div className="space-y-1.5 pt-1">
+                                        <Input label="Gerador de Link RTMP" value={newRtmpUrl} onChange={e => setNewRtmpUrl(e.target.value)} placeholder="rtmp://servcam.alienmonitoramento.com.br/live/..." />
+                                        <div className="flex gap-2 pt-1">
+                                            <Button type="button" onClick={() => {
+                                                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                                                let randomCode = '';
+                                                for (let i = 0; i < 24; i++) {
+                                                    randomCode += chars.charAt(Math.floor(Math.random() * chars.length));
+                                                }
+                                                const rtmpUrl = `rtmp://servcam.alienmonitoramento.com.br/live/${randomCode}`;
+                                                setNewRtmpUrl(rtmpUrl);
+                                            }} className="text-[10px] py-1 px-3 h-8 bg-zinc-800 hover:bg-zinc-700 text-white font-bold" variant="secondary">
+                                                🔄 Gerar RTMP
+                                            </Button>
+                                            <Button 
+                                                type="button" 
+                                                disabled={sendingRtmp}
+                                                onClick={async () => {
+                                                    if (!newRtmpUrl || !newRtmpUrl.includes('rtmp://')) {
+                                                        alert("Gere um link RTMP válido primeiro.");
+                                                        return;
+                                                    }
+                                                    setSendingRtmp(true);
+                                                    try {
+                                                        const currentHood = managedNeighborhoods.find(h => h.id === selectedManageHoodId);
+                                                        const hoodName = currentHood ? currentHood.name : 'Sistema Não Especificado';
+                                                        const cameraName = newCameraName || 'Sem Nome';
+
+                                                        await MockService.createSupportTicket(
+                                                            user?.id || 'unknown',
+                                                            user?.name || 'Integrador',
+                                                            `[SOLICITAÇÃO DE RTMP PARA CONFIGURAÇÃO NO SERVIDOR]\nSistema: "${hoodName}"\nCâmera: "${cameraName}"\nLink RTMP: ${newRtmpUrl}\nLink Player HTTPS: ${newPlayerUrl || 'N/A'}`,
+                                                            selectedManageHoodId
+                                                        );
+
+                                                        setRtmpFeedbackModal({
+                                                            msg: `✅ Solicitação enviada com sucesso para o Administrador do Servidor!\n\n• Sistema: ${hoodName}\n• Câmera: ${cameraName}\n• Link RTMP: ${newRtmpUrl}\n\n🕒 A sua câmera estará online em um prazo de 1 a 24 horas.`
+                                                        });
+                                                    } catch (e: any) {
+                                                        alert("Erro ao enviar link para o servidor: " + (e?.message || 'Erro'));
+                                                    } finally {
+                                                        setSendingRtmp(false);
+                                                    }
+                                                }} 
+                                                className="text-[10px] py-1 px-3 h-8 bg-atalaia-neon hover:bg-atalaia-neon/90 disabled:opacity-50 text-black font-black flex items-center justify-center gap-1.5 shadow-md shadow-atalaia-neon/10" 
+                                                variant="secondary"
+                                            >
+                                                {sendingRtmp ? (
+                                                    <>
+                                                        <Loader2 size={12} className="animate-spin" />
+                                                        <span>Enviando...</span>
+                                                    </>
+                                                ) : (
+                                                    <span>📤 Enviar Link para Configuração no Servidor</span>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <p className="text-[9px] text-zinc-400 px-1 leading-tight pt-1">
+                                        💡 <strong>Instruções:</strong> Use o campo superior para a URL HTTPS do player. Use o gerador RTMP e o botão "Enviar Link ao Admin" para notificar o administrador.
                                     </p>
                                 </div>
                                 
@@ -1535,7 +1625,7 @@ const Cameras: React.FC = () => {
 
               <form onSubmit={handleSendSupport} className="p-6 space-y-4">
                 <p className="text-xs text-gray-400 font-medium">
-                  Descreva o problema que está ocorrendo com seus equipamentos ou sistema. Um técnico certificado Atalaia será designado para ajudar.
+                  Descreva o problema que está ocorrendo com seus equipamentos ou sistema. Um técnico certificado ServCam será designado para ajudar.
                 </p>
                 
                 <div className="space-y-2">
@@ -1602,7 +1692,7 @@ const Cameras: React.FC = () => {
                             <span className="text-[10px] text-atalaia-neon font-mono bg-atalaia-neon/10 border border-atalaia-neon/20 px-2 py-0.5 rounded">ONLINE</span>
                         </h2>
                         <p className="text-[10px] text-gray-400 mt-0.5 animate-pulse">
-                            Sistema: <span className="text-atalaia-neon font-semibold uppercase">{neighborhoods.find(h => h.id === selectedCameraForModal.neighborhoodId)?.name || 'Atalaia'}</span>
+                            Sistema: <span className="text-atalaia-neon font-semibold uppercase">{neighborhoods.find(h => h.id === selectedCameraForModal.neighborhoodId)?.name || 'ServCam'}</span>
                         </p>
                     </div>
                 </div>
@@ -1901,7 +1991,7 @@ const Cameras: React.FC = () => {
                                 <Badge 
                                   className={
                                     req.status === 'COMPLETED' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                                    req.status === 'APPROVED' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
+                                    req.status === 'APPROVED' ? 'bg-atalaia-neon/20 text-atalaia-neon border-atalaia-neon/30' :
                                     req.status === 'ANALYZING' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
                                     req.status === 'REJECTED' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
                                     'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
@@ -1981,7 +2071,7 @@ const Cameras: React.FC = () => {
                                 <Button 
                                   type="button" 
                                   onClick={() => handleAdminStatusUpdate(req.id, 'APPROVED')}
-                                  className="text-[9px] h-7 px-2.5 bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500 text-purple-400 hover:text-white"
+                                  className="text-[9px] h-7 px-2.5 bg-atalaia-neon/10 border border-atalaia-neon/30 hover:bg-atalaia-neon text-atalaia-neon hover:text-black font-bold"
                                 >
                                   APROVAR
                                 </Button>
@@ -2036,7 +2126,7 @@ const Cameras: React.FC = () => {
                     )}
                   </div>
                 ) : activeRecordingTab === 'new' ? (
-                  /* VISTA MORADOR: CRIAR SOLICITAÇÃO */
+                  /* VISTA CLIENTE: CRIAR SOLICITAÇÃO */
                   <form onSubmit={handleCreateRecordingRequest} className="space-y-5">
                     <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 flex gap-3">
                       <Info size={18} className="text-emerald-400 shrink-0 mt-0.5" />
@@ -2245,7 +2335,7 @@ const Cameras: React.FC = () => {
                     </div>
                   </form>
                 ) : (
-                  /* VISTA MORADOR: LISTA DE SOLICITAÇÕES */
+                  /* VISTA CLIENTE: LISTA DE SOLICITAÇÕES */
                   <div className="space-y-4">
                     {recordingRequests.filter(r => r.userId === user?.id).length === 0 ? (
                       <div className="text-center py-12 border border-dashed border-white/5 rounded-2xl bg-black/20">
@@ -2270,7 +2360,7 @@ const Cameras: React.FC = () => {
                                 <Badge 
                                   className={
                                     req.status === 'COMPLETED' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                                    req.status === 'APPROVED' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
+                                    req.status === 'APPROVED' ? 'bg-atalaia-neon/20 text-atalaia-neon border-atalaia-neon/30' :
                                     req.status === 'ANALYZING' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
                                     req.status === 'REJECTED' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
                                     'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
@@ -2350,9 +2440,39 @@ const Cameras: React.FC = () => {
 
               {/* Footer */}
               <div className="p-4 bg-zinc-900 border-t border-white/5 flex items-center justify-between text-[10px] text-zinc-500 font-bold">
-                <span>Atalaia Tecnologia Inteligente de Monitoramento Cooperativo © 2026</span>
+                <span>ServCam Tecnologia Inteligente de Monitoramento Cooperativo © 2026</span>
                 <span>Câmeras do Bairro</span>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {rtmpFeedbackModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-[#0a0a0a] border border-atalaia-neon/40 rounded-2xl p-6 shadow-2xl relative overflow-hidden text-center"
+            >
+              <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-atalaia-neon to-transparent" />
+              <div className="w-12 h-12 bg-atalaia-neon/10 border border-atalaia-neon/30 text-atalaia-neon rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle size={26} className="text-atalaia-neon" />
+              </div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-2 font-mono">
+                Aviso de Envio ao Servidor
+              </h3>
+              <p className="text-xs text-zinc-300 mb-6 leading-relaxed font-mono whitespace-pre-line bg-black/60 p-3 rounded-xl border border-white/10 text-left">
+                {rtmpFeedbackModal.msg}
+              </p>
+              <button
+                type="button"
+                onClick={() => setRtmpFeedbackModal(null)}
+                className="w-full py-2.5 rounded-xl bg-atalaia-neon hover:bg-atalaia-neon/90 text-black font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-atalaia-neon/20 cursor-pointer font-sans"
+              >
+                OK / Entendido
+              </button>
             </motion.div>
           </div>
         )}

@@ -10,7 +10,7 @@ import {
     Trash2, MapPin, Users, Search, 
     Edit2, Loader2, Wrench, CheckCircle, Smartphone, Mail, RefreshCw, Filter, Database, AlertTriangle,
     Star, Upload, Check, Settings, Building, CreditCard, Sparkles, AlertCircle, Sliders, FileText, UserPlus, X,
-    Shield, Lock, Eye, EyeOff, UserCheck, ArrowLeft
+    Shield, Lock, Eye, EyeOff, UserCheck, ArrowLeft, Copy, ExternalLink, Code, Globe, MessageSquare, Tag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -32,9 +32,29 @@ const IntegratorUsers: React.FC = () => {
   const [isCreateIntegratorModalOpen, setIsCreateIntegratorModalOpen] = useState(false);
   const [integratorName, setIntegratorName] = useState('');
   const [integratorEmail, setIntegratorEmail] = useState('');
+  const [integratorPhone, setIntegratorPhone] = useState('');
   const [integratorPassword, setIntegratorPassword] = useState('123456');
   const [integratorCnpj, setIntegratorCnpj] = useState('');
   const [integratorRazaoSocial, setIntegratorRazaoSocial] = useState('');
+
+  // Editing integrator modal states
+  const [editingIntegrator, setEditingIntegrator] = useState<User | null>(null);
+  const [editIntName, setEditIntName] = useState('');
+  const [editIntEmail, setEditIntEmail] = useState('');
+  const [editIntPhone, setEditIntPhone] = useState('');
+  const [editIntCnpj, setEditIntCnpj] = useState('');
+  const [editIntRazaoSocial, setEditIntRazaoSocial] = useState('');
+  const [editIntLogo, setEditIntLogo] = useState('');
+  const [editIntPassword, setEditIntPassword] = useState('');
+  const [savingIntegratorEdit, setSavingIntegratorEdit] = useState(false);
+
+  // Code generator modal states
+  const [selectedIntegratorForCode, setSelectedIntegratorForCode] = useState<User | null>(null);
+  const [copiedIntegratorId, setCopiedIntegratorId] = useState<string | null>(null);
+  const [copiedIntegratorLink, setCopiedIntegratorLink] = useState<string | null>(null);
+  const [copiedModalIndexHtml, setCopiedModalIndexHtml] = useState(false);
+  const [copiedModalIframe, setCopiedModalIframe] = useState(false);
+  const [activeCodeTab, setActiveCodeTab] = useState<'index' | 'iframe'>('index');
 
   const showFeedback = (msg: string, type: 'success' | 'error' = 'success') => {
     setFeedbackBanner({ msg, type });
@@ -84,7 +104,7 @@ const IntegratorUsers: React.FC = () => {
       }
 
       if (!base64) {
-        throw new Error("Comprovante não encontrado. O morador precisa anexá-lo novamente.");
+        throw new Error("Comprovante não encontrado. O cliente precisa anexá-lo novamente.");
       }
 
       if (action === 'view') {
@@ -503,25 +523,104 @@ const IntegratorUsers: React.FC = () => {
         }
         setCreatingUser(true);
         try {
-            await MockService.createClientUser({
-                name: integratorName,
-                email: integratorEmail,
+            const cleanPhone = integratorPhone.trim();
+            const created = await MockService.createClientUser({
+                name: integratorName.trim(),
+                email: integratorEmail.trim(),
                 password: integratorPassword,
+                phone: cleanPhone || undefined,
                 role: UserRole.INTEGRATOR,
                 approved: true,
                 address: JSON.stringify({
-                    cnpj: integratorCnpj,
-                    razaoSocial: integratorRazaoSocial
+                    companyName: integratorName.trim(),
+                    cnpj: integratorCnpj.trim(),
+                    razaoSocial: integratorRazaoSocial.trim(),
+                    phone: cleanPhone
                 })
             });
 
+            if (created?.id && cleanPhone) {
+                await MockService.saveIntegratorPhone(created.id, cleanPhone);
+            }
+
             setIsCreateIntegratorModalOpen(false);
+            setIntegratorName('');
+            setIntegratorEmail('');
+            setIntegratorPhone('');
+            setIntegratorCnpj('');
+            setIntegratorRazaoSocial('');
             await fetchData();
-            showFeedback(`Empresa "${integratorName}" incluída com sucesso!`, 'success');
+            setSelectedIntegratorForCode(created);
+            showFeedback(`Empresa "${created.name}" incluída com sucesso! ID, link e WhatsApp configurados.`, 'success');
         } catch (err: any) {
             showFeedback(err.message || 'Erro ao incluir empresa.', 'error');
         } finally {
             setCreatingUser(false);
+        }
+    };
+
+    const handleOpenEditIntegrator = (intUser: User) => {
+        setEditingIntegrator(intUser);
+        setEditIntName(intUser.companyName || intUser.razaoSocial || intUser.name || '');
+        setEditIntEmail(intUser.email || '');
+        setEditIntPhone(intUser.phone || '');
+        setEditIntCnpj(intUser.cnpj || '');
+        setEditIntRazaoSocial(intUser.razaoSocial || '');
+        setEditIntLogo(intUser.companyLogo || '');
+        setEditIntPassword('');
+    };
+
+    const handleSaveIntegratorEdit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingIntegrator) return;
+        if (!editIntName.trim()) {
+            showFeedback('O nome da empresa é obrigatório.', 'error');
+            return;
+        }
+        setSavingIntegratorEdit(true);
+        try {
+            const intId = editingIntegrator.id;
+            const cleanPhone = editIntPhone.trim();
+            const payload: any = {
+                name: editIntName.trim(),
+                phone: cleanPhone,
+                address: JSON.stringify({
+                    companyName: editIntName.trim(),
+                    razaoSocial: editIntRazaoSocial.trim(),
+                    cnpj: editIntCnpj.trim(),
+                    phone: cleanPhone,
+                    companyLogo: editIntLogo.trim()
+                })
+            };
+            if (editIntEmail.trim()) payload.email = editIntEmail.trim();
+            if (editIntPassword.trim().length >= 6) payload.password = editIntPassword.trim();
+
+            await MockService.adminUpdateUser(intId, payload);
+            await MockService.saveIntegratorPhone(intId, cleanPhone);
+
+            setIntegrators(prev => prev.map(item => {
+                if (item.id === intId) {
+                    return {
+                        ...item,
+                        name: editIntName.trim(),
+                        companyName: editIntName.trim(),
+                        razaoSocial: editIntRazaoSocial.trim(),
+                        cnpj: editIntCnpj.trim(),
+                        phone: cleanPhone,
+                        companyLogo: editIntLogo.trim() || item.companyLogo,
+                        email: editIntEmail.trim() || item.email
+                    };
+                }
+                return item;
+            }));
+
+            window.dispatchEvent(new CustomEvent('atalaia:integrator_updated', { detail: { id: intId, phone: cleanPhone } }));
+            showFeedback(`Empresa integradora "${editIntName}" atualizada com sucesso!`, 'success');
+            setEditingIntegrator(null);
+        } catch (err: any) {
+            showFeedback(err.message || 'Erro ao salvar alterações da integradora.', 'error');
+        } finally {
+            setSavingIntegratorEdit(false);
         }
     };
 
@@ -706,12 +805,12 @@ const IntegratorUsers: React.FC = () => {
             </Card>
 
             {user?.role === UserRole.ADMIN && (
-                <Card className="p-4 sm:p-5 bg-zinc-900/40 border-purple-500/20 flex items-center justify-between rounded-2xl">
+                <Card className="p-4 sm:p-5 bg-zinc-900/40 border-atalaia-neon/20 flex items-center justify-between rounded-2xl">
                     <div>
-                        <span className="text-[10px] sm:text-xs text-purple-400 font-bold uppercase tracking-wider block mb-1">Integradoras</span>
-                        <span className="text-2xl sm:text-3xl font-black text-purple-400">{integrators.length}</span>
+                        <span className="text-[10px] sm:text-xs text-atalaia-neon font-bold uppercase tracking-wider block mb-1">Integradoras</span>
+                        <span className="text-2xl sm:text-3xl font-black text-atalaia-neon">{integrators.length}</span>
                     </div>
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-500 flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-atalaia-neon/10 border border-atalaia-neon/20 text-atalaia-neon flex items-center justify-center shrink-0">
                         <Building size={20} />
                     </div>
                 </Card>
@@ -801,8 +900,8 @@ const IntegratorUsers: React.FC = () => {
                     onClick={() => setFilterTab('integrator')}
                     className={`py-2 px-3.5 sm:py-2.5 sm:px-4 rounded-xl text-xs uppercase tracking-widest font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                         filterTab === 'integrator'
-                            ? 'bg-purple-600 text-white font-black shadow-sm'
-                            : 'bg-purple-600/10 text-purple-400 hover:bg-purple-600/20'
+                            ? 'bg-atalaia-neon text-black font-black shadow-sm'
+                            : 'bg-atalaia-neon/10 text-atalaia-neon hover:bg-atalaia-neon/20'
                     }`}
                 >
                     Integradoras ({integrators.length})
@@ -817,34 +916,180 @@ const IntegratorUsers: React.FC = () => {
             </div>
         ) : (user?.role === UserRole.ADMIN && filterTab === 'integrator') ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {integrators.map(intUser => (
-                    <Card key={intUser.id} className="p-6 bg-[#0a0a0a] border-white/5 hover:border-purple-500/30 transition-all">
-                        <div className="flex gap-4 items-start">
-                            <div className="w-12 h-12 rounded-full bg-purple-900/20 flex items-center justify-center text-purple-400 font-black shadow-inner shrink-0">
-                                <Building size={24} />
+                {integrators.map(intUser => {
+                    const intId = intUser.id;
+                    const isAlien = intUser.id === 'alienmonitoramento-integrator-id' || 
+                                    intUser.id === 'a11e9920-6765-4f81-b454-e6778b77ee66' ||
+                                    (intUser.companyName || '').toLowerCase().includes('alien') ||
+                                    (intUser.name || '').toLowerCase().includes('alien') ||
+                                    (intUser.email || '').toLowerCase().includes('alien');
+                    const systemUuid = isAlien ? 'a11e9920-6765-4f81-b454-e6778b77ee66' : intId;
+                    const slugId = isAlien ? 'alienmonitoramento-integrator-id' : (intUser.customSlug || null);
+                    const baseOrigin = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost'))
+                        ? window.location.origin
+                        : 'https://ais-dev-6poc3il3qcyznrtjn4rips-44114112762.us-west2.run.app';
+                    const clientLink = isAlien 
+                        ? `${baseOrigin}/#/logincliente?integrator=alienmonitoramento-integrator-id`
+                        : `${baseOrigin}/#/logincliente?integrator=${intId}`;
+                    const displayName = intUser.companyName || intUser.razaoSocial || intUser.name;
+                    return (
+                        <Card key={intUser.id} className="p-5 sm:p-6 bg-[#0a0a0a] border border-white/5 hover:border-atalaia-neon/30 transition-all rounded-2xl flex flex-col justify-between shadow-lg">
+                            <div className="space-y-4">
+                                <div className="flex gap-3 sm:gap-4 items-start">
+                                    <div className="w-12 h-12 rounded-2xl bg-atalaia-neon/10 border border-atalaia-neon/30 flex items-center justify-center text-atalaia-neon font-black shadow-inner shrink-0">
+                                        <Building size={24} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h3 className="font-bold text-white text-base truncate" title={displayName}>{displayName}</h3>
+                                            <span className="text-[9px] bg-atalaia-neon/15 border border-atalaia-neon/30 text-atalaia-neon px-2 py-0.5 rounded font-black uppercase">
+                                                Integradora
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-400 truncate">{intUser.email}</p>
+                                        {intUser.phone ? (
+                                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#25D366]/15 border border-[#25D366]/30 text-[#25D366] text-[11px] font-mono font-bold">
+                                                    <MessageSquare size={11} fill="currentColor" /> {intUser.phone}
+                                                </span>
+                                                <a
+                                                    href={`https://wa.me/55${intUser.phone.replace(/\D/g, '')}`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-[10px] text-zinc-400 hover:text-[#25D366] underline flex items-center gap-0.5"
+                                                >
+                                                    Testar WhatsApp
+                                                </a>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[11px] font-bold">
+                                                    ⚠️ Sem WhatsApp cadastrado
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleOpenEditIntegrator(intUser)}
+                                                    className="text-[10px] text-amber-300 hover:text-white underline font-bold cursor-pointer"
+                                                >
+                                                    + Cadastrar WhatsApp
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* ID DO INTEGRADOR */}
+                                <div className="p-3 bg-black/60 border border-white/10 rounded-xl space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] text-atalaia-neon font-black uppercase tracking-wider flex items-center gap-1">
+                                            <Shield size={11} /> Código de ID (Sistema UUID)
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(systemUuid);
+                                                setCopiedIntegratorId(systemUuid);
+                                                setTimeout(() => setCopiedIntegratorId(null), 2500);
+                                            }}
+                                            className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                                        >
+                                            <Copy size={11} className={copiedIntegratorId === systemUuid ? "text-atalaia-neon" : ""} />
+                                            {copiedIntegratorId === systemUuid ? 'Copiado!' : 'Copiar Código'}
+                                        </button>
+                                    </div>
+                                    <code className="text-xs font-mono text-zinc-200 select-all block break-all bg-zinc-950 p-1.5 rounded border border-white/5">
+                                        {systemUuid}
+                                    </code>
+
+                                    {slugId && (
+                                        <div className="pt-2 border-t border-white/5 space-y-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider flex items-center gap-1">
+                                                    <Tag size={11} /> Identificador Amigável (Slug)
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(slugId);
+                                                        setCopiedIntegratorId(slugId);
+                                                        setTimeout(() => setCopiedIntegratorId(null), 2500);
+                                                    }}
+                                                    className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                                                >
+                                                    <Copy size={11} className={copiedIntegratorId === slugId ? "text-atalaia-neon" : ""} />
+                                                    {copiedIntegratorId === slugId ? 'Copiado!' : 'Copiar Slug'}
+                                                </button>
+                                            </div>
+                                            <code className="text-xs font-mono text-amber-300/90 select-all block break-all bg-zinc-950 p-1.5 rounded border border-amber-500/20">
+                                                {slugId}
+                                            </code>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* LINK DIRETO DOS CLIENTES */}
+                                <div className="p-3 bg-black/60 border border-white/10 rounded-xl space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] text-atalaia-neon font-black uppercase tracking-wider flex items-center gap-1">
+                                            <Globe size={11} /> Link do Cliente (/logincliente)
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(clientLink);
+                                                    setCopiedIntegratorLink(intId);
+                                                    setTimeout(() => setCopiedIntegratorLink(null), 2500);
+                                                }}
+                                                className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                                            >
+                                                <Copy size={11} className={copiedIntegratorLink === intId ? "text-atalaia-neon" : ""} />
+                                                {copiedIntegratorLink === intId ? 'Copiado!' : 'Copiar Link'}
+                                            </button>
+                                            <a
+                                                href={clientLink}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-[10px] text-atalaia-neon hover:underline flex items-center gap-0.5"
+                                            >
+                                                <ExternalLink size={11} /> Abrir
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <code className="text-[11px] font-mono text-zinc-300 select-all block truncate bg-zinc-950 p-1.5 rounded border border-white/5" title={clientLink}>
+                                        {clientLink}
+                                    </code>
+                                </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <h3 className="font-bold text-white truncate">{intUser.companyName || intUser.razaoSocial || intUser.name}</h3>
-                                <p className="text-xs text-gray-500 truncate">{intUser.email}</p>
-                                {intUser.phone && <p className="text-[10px] text-gray-400 mt-0.5">{intUser.phone}</p>}
-                                <div className="flex items-center gap-2 mt-3">
+
+                            {/* AÇÕES: GERAR INDEX.HTML + EDITAR + APAGAR */}
+                            <div className="pt-4 border-t border-white/5 flex items-center justify-between gap-2 mt-4 flex-wrap">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedIntegratorForCode(intUser)}
+                                    className="px-3 py-1.5 bg-atalaia-neon/20 hover:bg-atalaia-neon/30 text-atalaia-neon border border-atalaia-neon/30 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                                >
+                                    <Code size={13} /> Gerar index.html Completo
+                                </button>
+                                <div className="flex items-center gap-3">
                                     <button
-                                        onClick={() => { alert('Funcionalidade de edição em desenvolvimento'); }}
-                                        className="text-[10px] text-purple-400 hover:text-purple-300 font-bold uppercase flex items-center gap-1"
+                                        type="button"
+                                        onClick={() => handleOpenEditIntegrator(intUser)}
+                                        className="text-[11px] text-zinc-400 hover:text-white font-bold uppercase flex items-center gap-1 cursor-pointer"
                                     >
                                         <Edit2 size={12} /> Editar
                                     </button>
                                     <button
                                         onClick={() => setIntegratorToDelete(intUser)}
-                                        className="text-[10px] text-red-400 hover:text-red-300 font-bold uppercase flex items-center gap-1"
+                                        className="text-[11px] text-red-400 hover:text-red-300 font-bold uppercase flex items-center gap-1 cursor-pointer"
                                     >
                                         <Trash2 size={12} /> Apagar
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    </Card>
-                ))}
+                        </Card>
+                    );
+                })}
             </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -856,7 +1101,7 @@ const IntegratorUsers: React.FC = () => {
                                 <div className="flex items-center gap-3 min-w-0">
                                     <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-black text-sm sm:text-base shrink-0 shadow-inner ${
                                         resident.role === UserRole.ADMIN 
-                                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' 
+                                            ? 'bg-atalaia-neon/10 text-atalaia-neon border border-atalaia-neon/30' 
                                             : (resident.role !== UserRole.RESIDENT || resident.isTeam)
                                                 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
                                                 : 'bg-zinc-900 text-atalaia-neon border border-white/10'
@@ -868,7 +1113,7 @@ const IntegratorUsers: React.FC = () => {
                                             {resident.name}
                                         </h3>
                                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                            <Badge color={resident.role === UserRole.ADMIN ? 'purple' : ((resident.role !== UserRole.RESIDENT || resident.isTeam) ? 'blue' : 'green')}>
+                                            <Badge color={resident.role === UserRole.ADMIN ? 'green' : ((resident.role !== UserRole.RESIDENT || resident.isTeam) ? 'blue' : 'green')}>
                                                 {resident.teamRoleTitle || resident.role}
                                             </Badge>
                                             <Badge color={resident.plan === 'PREMIUM' ? 'green' : (resident.plan === 'FAMILY' ? 'yellow' : 'blue')}>
@@ -916,7 +1161,7 @@ const IntegratorUsers: React.FC = () => {
                                     🏡 {neighborhoods.find(n => n.id === resident.neighborhoodId)?.name || 'Sem Bairro Vinculado'}
                                 </span>
                                 {resident.secondaryNeighborhoodId && (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 font-bold uppercase tracking-wide">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-atalaia-neon/10 border border-atalaia-neon/20 text-atalaia-neon font-bold uppercase tracking-wide">
                                         🏢 + {neighborhoods.find(n => n.id === resident.secondaryNeighborhoodId)?.name || 'Bairro 2'}
                                     </span>
                                 )}
@@ -1049,18 +1294,26 @@ const IntegratorUsers: React.FC = () => {
 
                         {/* ACTION FOOTER */}
                         <div className="pt-3.5 mt-3.5 border-t border-white/5 space-y-2">
-                            {resident.approved === false && (
-                                <button
-                                    type="button"
-                                    onClick={async () => {
-                                        await MockService.approveUser(resident.id);
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    try {
+                                        await MockService.updateUserApproval(resident.id, !resident.approved);
                                         await fetchData();
-                                    }}
-                                    className="w-full py-2.5 rounded-xl bg-atalaia-neon text-black font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-atalaia-neon/15"
-                                >
-                                    <Check size={15} /> Liberar Acesso Agora
-                                </button>
-                            )}
+                                        showFeedback(resident.approved !== false ? 'Usuário bloqueado com sucesso!' : 'Usuário liberado com sucesso!', 'success');
+                                    } catch (e: any) {
+                                        showFeedback('Erro ao alterar status: ' + e.message, 'error');
+                                    }
+                                }}
+                                className={`w-full py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                                    resident.approved !== false
+                                        ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20'
+                                        : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20'
+                                }`}
+                            >
+                                {resident.approved !== false ? <Lock size={15} /> : <Check size={15} />}
+                                {resident.approved !== false ? 'Bloquear Acesso' : 'Liberar Acesso Agora'}
+                            </button>
 
                             <div className="grid grid-cols-2 gap-2">
                                 <button 
@@ -1203,7 +1456,7 @@ const IntegratorUsers: React.FC = () => {
                         <div>
                             <label className="text-[10px] text-gray-500 uppercase font-black mb-1 block">Papel</label>
                             <select className="w-full bg-black border border-white/10 rounded-xl p-3.5 text-white text-sm" value={newRole} onChange={e => setNewRole(e.target.value as UserRole)}>
-                                <option value={UserRole.RESIDENT}>Cliente (Morador)</option>
+                                <option value={UserRole.RESIDENT}>Cliente</option>
                                 <option value={UserRole.SCR}>Motovigia (SCR)</option>
                                 {user?.role === UserRole.ADMIN && (
                                     <>
@@ -1279,8 +1532,14 @@ const IntegratorUsers: React.FC = () => {
         <Modal isOpen={isCreateIntegratorModalOpen} onClose={() => setIsCreateIntegratorModalOpen(false)}>
             <form onSubmit={handleCreateIntegrator} className="p-6 md:p-8 space-y-4">
                 <h2 className="text-xl font-bold text-white mb-4">Incluir Empresa Integradora</h2>
-                <Input label="Nome da Empresa" value={integratorName} onChange={e => setIntegratorName(e.target.value)} required />
+                <Input label="Nome da Empresa / Nome Fantasia" value={integratorName} onChange={e => setIntegratorName(e.target.value)} required />
                 <Input label="E-mail de Acesso" type="email" value={integratorEmail} onChange={e => setIntegratorEmail(e.target.value)} required />
+                <div>
+                    <Input label="Telefone / WhatsApp (com DDD)" placeholder="Ex: (48) 99999-9999" value={integratorPhone} onChange={e => setIntegratorPhone(e.target.value)} />
+                    <p className="text-[10px] text-zinc-400 mt-1">
+                        * O WhatsApp cadastrado aqui exibirá automaticamente o botão de atendimento no cabeçalho do sistema.
+                    </p>
+                </div>
                 <Input label="Senha Inicial" type="text" value={integratorPassword} onChange={e => setIntegratorPassword(e.target.value)} required />
                 <Input label="CNPJ" value={integratorCnpj} onChange={e => setIntegratorCnpj(e.target.value)} />
                 <Input label="Razão Social" value={integratorRazaoSocial} onChange={e => setIntegratorRazaoSocial(e.target.value)} />
@@ -1288,6 +1547,273 @@ const IntegratorUsers: React.FC = () => {
                     {creatingUser ? 'Cadastrando...' : 'Incluir Empresa'}
                 </Button>
             </form>
+        </Modal>
+
+        {/* MODAL: EDITAR EMPRESA INTEGRADORA */}
+        <Modal isOpen={Boolean(editingIntegrator)} onClose={() => setEditingIntegrator(null)}>
+            {editingIntegrator && (
+                <form onSubmit={handleSaveIntegratorEdit} className="p-6 md:p-8 space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                        <div className="flex items-center gap-2">
+                            <Building className="text-atalaia-neon" size={20} />
+                            <h2 className="text-lg font-bold text-white">Editar Empresa Integradora</h2>
+                        </div>
+                    </div>
+
+                    <div className="p-3 bg-atalaia-neon/10 border border-atalaia-neon/20 rounded-xl text-xs text-zinc-300">
+                        Configure os dados e o <strong>WhatsApp oficial</strong> da integradora. Este número é o que gera o botão de atendimento no topo do painel para os clientes.
+                    </div>
+
+                    <Input label="Nome da Empresa / Nome Fantasia" value={editIntName} onChange={e => setEditIntName(e.target.value)} required />
+                    
+                    <div>
+                        <Input 
+                            label="Telefone / WhatsApp (com DDD)" 
+                            placeholder="Ex: (48) 99999-9999" 
+                            value={editIntPhone} 
+                            onChange={e => setEditIntPhone(e.target.value)} 
+                        />
+                        <p className="text-[10px] text-zinc-400 mt-1">
+                            * Se preenchido, o botão verde &quot;WhatsApp&quot; aparecerá no topo do cabeçalho ao lado do nome da integradora.
+                        </p>
+                    </div>
+
+                    <Input label="E-mail de Acesso" type="email" value={editIntEmail} onChange={e => setEditIntEmail(e.target.value)} />
+                    <Input label="CNPJ" value={editIntCnpj} onChange={e => setEditIntCnpj(e.target.value)} />
+                    <Input label="Razão Social" value={editIntRazaoSocial} onChange={e => setEditIntRazaoSocial(e.target.value)} />
+                    <Input label="URL do Logotipo da Empresa" placeholder="https://..." value={editIntLogo} onChange={e => setEditIntLogo(e.target.value)} />
+                    <Input label="Nova Senha (deixe em branco para manter atual)" type="text" placeholder="Mínimo 6 dígitos" value={editIntPassword} onChange={e => setEditIntPassword(e.target.value)} />
+
+                    <div className="pt-2 flex gap-3">
+                        <Button type="button" variant="outline" onClick={() => setEditingIntegrator(null)} className="flex-1">
+                            Cancelar
+                        </Button>
+                        <Button type="submit" disabled={savingIntegratorEdit} className="flex-1 bg-atalaia-neon hover:bg-atalaia-neon/90 text-black font-bold">
+                            {savingIntegratorEdit ? 'Salvando...' : 'Salvar Alterações'}
+                        </Button>
+                    </div>
+                </form>
+            )}
+        </Modal>
+
+        {/* MODAL: GERADOR DE CÓDIGO E LINK DA INTEGRADORA */}
+        <Modal isOpen={Boolean(selectedIntegratorForCode)} onClose={() => setSelectedIntegratorForCode(null)}>
+            {selectedIntegratorForCode && (() => {
+                const intId = selectedIntegratorForCode.id;
+                const isAlien = selectedIntegratorForCode.id === 'alienmonitoramento-integrator-id' || 
+                                selectedIntegratorForCode.id === 'a11e9920-6765-4f81-b454-e6778b77ee66' ||
+                                (selectedIntegratorForCode.companyName || '').toLowerCase().includes('alien') ||
+                                (selectedIntegratorForCode.name || '').toLowerCase().includes('alien') ||
+                                (selectedIntegratorForCode.email || '').toLowerCase().includes('alien');
+                const systemUuid = isAlien ? 'a11e9920-6765-4f81-b454-e6778b77ee66' : intId;
+                const slugId = isAlien ? 'alienmonitoramento-integrator-id' : (selectedIntegratorForCode.customSlug || null);
+                const intName = selectedIntegratorForCode.companyName || selectedIntegratorForCode.razaoSocial || selectedIntegratorForCode.name || 'Central de Monitoramento';
+                const baseOrigin = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')) 
+                    ? window.location.origin 
+                    : 'https://ais-dev-6poc3il3qcyznrtjn4rips-44114112762.us-west2.run.app';
+                const clientUrl = isAlien 
+                    ? `${baseOrigin}/#/logincliente?integrator=alienmonitoramento-integrator-id`
+                    : `${baseOrigin}/#/logincliente?integrator=${intId}`;
+                const indexCode = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${intName} - Câmeras</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+        iframe { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; margin: 0; padding: 0; overflow: hidden; }
+    </style>
+</head>
+<body>
+    <iframe 
+        src="${clientUrl}" 
+        title="Portal de Monitoramento" 
+        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" 
+        allowfullscreen>
+    </iframe>
+</body>
+</html>`;
+                const iframeCode = `<iframe src="${clientUrl}" style="width: 100%; height: 100vh; border: none;" title="Portal de Monitoramento" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+
+                return (
+                    <div className="p-6 md:p-8 max-h-[85vh] overflow-y-auto space-y-5">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-atalaia-neon/10 border border-atalaia-neon/30 flex items-center justify-center text-atalaia-neon font-bold shrink-0">
+                                    <Building size={20} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-white">{intName}</h2>
+                                    <p className="text-xs text-zinc-400">Códigos de integração e links oficiais para clientes</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ID DO INTEGRADOR */}
+                        <div className="p-3.5 bg-black/60 border border-atalaia-neon/20 rounded-xl space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-atalaia-neon font-black uppercase tracking-wider flex items-center gap-1">
+                                    <Shield size={12} /> Código de ID (Sistema UUID)
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(systemUuid);
+                                        setCopiedIntegratorId(systemUuid);
+                                        setTimeout(() => setCopiedIntegratorId(null), 2500);
+                                    }}
+                                    className="text-xs text-zinc-300 hover:text-white flex items-center gap-1 cursor-pointer"
+                                >
+                                    <Copy size={12} className={copiedIntegratorId === systemUuid ? "text-atalaia-neon" : ""} />
+                                    {copiedIntegratorId === systemUuid ? 'Copiado!' : 'Copiar Código'}
+                                </button>
+                            </div>
+                            <code className="text-xs font-mono text-white select-all block break-all bg-zinc-950 p-2 rounded-lg border border-white/5">
+                                {systemUuid}
+                            </code>
+
+                            {slugId && (
+                                <div className="pt-2 border-t border-white/5 space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider flex items-center gap-1">
+                                            <Tag size={12} /> Identificador Amigável (Slug)
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(slugId);
+                                                setCopiedIntegratorId(slugId);
+                                                setTimeout(() => setCopiedIntegratorId(null), 2500);
+                                            }}
+                                            className="text-xs text-zinc-300 hover:text-white flex items-center gap-1 cursor-pointer"
+                                        >
+                                            <Copy size={12} className={copiedIntegratorId === slugId ? "text-atalaia-neon" : ""} />
+                                            {copiedIntegratorId === slugId ? 'Copiado!' : 'Copiar Slug'}
+                                        </button>
+                                    </div>
+                                    <code className="text-xs font-mono text-amber-300/90 select-all block break-all bg-zinc-950 p-2 rounded-lg border border-amber-500/20">
+                                        {slugId}
+                                    </code>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* LINK DOS CLIENTES */}
+                        <div className="p-3.5 bg-black/60 border border-atalaia-neon/20 rounded-xl space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-atalaia-neon font-black uppercase tracking-wider flex items-center gap-1">
+                                    <Globe size={12} /> Link Direto dos Clientes (/logincliente)
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(clientUrl);
+                                            setCopiedIntegratorLink(intId);
+                                            setTimeout(() => setCopiedIntegratorLink(null), 2500);
+                                        }}
+                                        className="text-xs text-zinc-300 hover:text-white flex items-center gap-1 cursor-pointer"
+                                    >
+                                        <Copy size={12} className={copiedIntegratorLink === intId ? "text-atalaia-neon" : ""} />
+                                        {copiedIntegratorLink === intId ? 'Copiado!' : 'Copiar Link'}
+                                    </button>
+                                    <a
+                                        href={clientUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-xs text-atalaia-neon hover:underline flex items-center gap-1"
+                                    >
+                                        <ExternalLink size={12} /> Visualizar
+                                    </a>
+                                </div>
+                            </div>
+                            <input
+                                type="text"
+                                readOnly
+                                value={clientUrl}
+                                className="w-full bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-zinc-300 select-all outline-none"
+                            />
+                        </div>
+
+                        {/* CÓDIGO EMBED: INDEX.HTML OU IFRAME */}
+                        <div className="p-4 bg-zinc-950/80 border border-white/10 rounded-2xl space-y-3">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                    <Code size={14} className="text-atalaia-neon" /> Código Pronto para Hospedagem
+                                </span>
+                                <div className="flex items-center gap-1 bg-zinc-900 p-0.5 rounded-lg border border-white/10 text-[10px]">
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveCodeTab('index')}
+                                        className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${activeCodeTab === 'index' ? 'bg-atalaia-neon text-black font-bold' : 'text-zinc-400 hover:text-white'}`}
+                                    >
+                                        index.html Completo
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveCodeTab('iframe')}
+                                        className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${activeCodeTab === 'iframe' ? 'bg-atalaia-neon text-black font-bold' : 'text-zinc-400 hover:text-white'}`}
+                                    >
+                                        Apenas &lt;iframe&gt;
+                                    </button>
+                                </div>
+                            </div>
+
+                            <p className="text-[11px] text-zinc-400 leading-relaxed">
+                                {activeCodeTab === 'index' ? (
+                                    <>
+                                        Salve este conteúdo como <code>index.html</code> e hospede na pasta do site do integrador (ex: <code>site.com.br/cameras/</code>). Os clientes acessarão sob o <strong>domínio próprio</strong> da empresa com a marca vinculada!
+                                    </>
+                                ) : (
+                                    <>
+                                        Cole esta tag <code>&lt;iframe&gt;</code> diretamente dentro de uma página existente no WordPress, Wix ou construtor do cliente.
+                                    </>
+                                )}
+                            </p>
+
+                            <textarea
+                                readOnly
+                                className="w-full h-32 bg-black border border-white/10 rounded-xl p-3 text-[11px] font-mono text-zinc-300 select-all outline-none resize-none leading-relaxed"
+                                value={activeCodeTab === 'index' ? indexCode : iframeCode}
+                            />
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(indexCode);
+                                        setCopiedModalIndexHtml(true);
+                                        setTimeout(() => setCopiedModalIndexHtml(false), 2500);
+                                    }}
+                                    className="px-3 h-10 bg-atalaia-neon/20 hover:bg-atalaia-neon/30 border border-atalaia-neon/30 rounded-xl text-xs font-bold text-atalaia-neon transition-all cursor-pointer flex items-center justify-center gap-2"
+                                >
+                                    <Copy size={13} className={copiedModalIndexHtml ? "text-atalaia-neon" : "text-atalaia-neon"} />
+                                    {copiedModalIndexHtml ? 'index.html Copiado! ✅' : 'Copiar index.html'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(iframeCode);
+                                        setCopiedModalIframe(true);
+                                        setTimeout(() => setCopiedModalIframe(false), 2500);
+                                    }}
+                                    className="px-3 h-10 bg-zinc-900 hover:bg-zinc-800 border border-white/15 rounded-xl text-xs font-bold text-white transition-all cursor-pointer flex items-center justify-center gap-2"
+                                >
+                                    <Copy size={13} className={copiedModalIframe ? "text-atalaia-neon" : "text-zinc-400"} />
+                                    {copiedModalIframe ? 'Tag <iframe> Copiada! ✅' : 'Copiar Apenas <iframe>'}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                            <Button variant="secondary" onClick={() => setSelectedIntegratorForCode(null)}>
+                                Fechar
+                            </Button>
+                        </div>
+                    </div>
+                );
+            })()}
         </Modal>
 
         {/* MODAL: EDITAR CLIENTE / USUÁRIO */}
@@ -1589,7 +2115,7 @@ const IntegratorUsers: React.FC = () => {
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-1.5 flex-wrap mb-1">
                                                         <strong className="text-sm font-bold text-white truncate max-w-[180px] sm:max-w-none">{member.name}</strong>
-                                                        <Badge color={member.role === UserRole.ADMIN ? 'purple' : 'blue'}>
+                                                        <Badge color={member.role === UserRole.ADMIN ? 'green' : 'blue'}>
                                                             {member.teamRoleTitle || member.role}
                                                         </Badge>
                                                         {member.neighborhoodId && (

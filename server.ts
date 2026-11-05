@@ -23,23 +23,41 @@ const inMemoryStore: {
   alerts: Array<{ id: string; title: string; message: string; type: string; created_at: string; created_by: string; neighborhood_id: string | null }>;
   payments: Array<{ id: string; user_id: string; amount: number; due_date: string; status: string; reference_month: string; receipt_base64: string | null; receipt_name: string | null; neighborhood_id: string | null }>;
   pricingConfig?: any;
+  whatsappConfig?: { url: string; token: string; sessionId?: string };
+  whatsappAutomations?: any;
+  whatsappLogs?: Array<{
+    id: string;
+    timestamp: string;
+    trigger: string;
+    recipient: string;
+    messageSnippet: string;
+    status: 'SENT' | 'FAILED';
+    error?: string;
+  }>;
 } = {
   neighborhoods: [
     { id: 'c2df598b-b454-4e71-bacf-0e58bf5ef378', name: 'Sítio Beto', description: 'Arroio Corrente JAguaruna', iframe_url: '', lat: -27.5969, lng: -48.5495, integrator_id: 'bd06f01f-991b-4c1c-bdac-e6778b77ee66', integrator_name: 'Rogerio Integrador' },
-    { id: 'hood-demo-1', name: 'Atalaia Central', description: 'Bairro central sob monitoramento integrado Atalaia.', iframe_url: 'about:blank', lat: -27.5969, lng: -48.5495, integrator_id: 'demo-integrator-id', integrator_name: 'Gestor Anderson' },
+    { id: 'hood-demo-1', name: 'Centro', description: 'Bairro central sob monitoramento integrado ServCam.', iframe_url: 'about:blank', lat: -27.5969, lng: -48.5495, integrator_id: 'demo-integrator-id', integrator_name: 'Gestor Anderson' },
     { id: 'hood-demo-2', name: 'Jardim Alvorada', description: 'Bairro monitorado com câmeras de alta definição e ronda ativa.', iframe_url: 'about:blank', lat: -27.6012, lng: -48.5410, integrator_id: null, integrator_name: null },
     { id: 'hood-demo-3', name: 'Porto Seguro', description: 'Bairro litorâneo com monitoramento patrimonial ativo.', iframe_url: 'about:blank', lat: -27.5850, lng: -48.5600, integrator_id: null, integrator_name: null }
   ],
   profiles: [
     { id: 'bd06f01f-991b-4c1c-bdac-e6778b77ee66', email: 'rogerioricardoluizintegrador@gmail.com', name: 'Rogerio Integrador', role: 'INTEGRATOR', plan: 'PREMIUM', approved: true, neighborhood_id: 'c2df598b-b454-4e71-bacf-0e58bf5ef378', primary_neighborhood_id: 'c2df598b-b454-4e71-bacf-0e58bf5ef378', secondary_neighborhood_id: null },
-    { id: 'demo-user-id', email: 'morador@atalaia.com', name: 'Mariana Costa', role: 'RESIDENT', plan: 'PREMIUM', approved: true, neighborhood_id: 'hood-demo-1', primary_neighborhood_id: 'hood-demo-1', secondary_neighborhood_id: 'hood-demo-2' },
-    { id: 'demo-scr-id', email: 'scr@atalaia.com', name: 'Vigia Roberto', role: 'SCR', plan: 'PREMIUM', approved: true, neighborhood_id: 'hood-demo-1', primary_neighborhood_id: 'hood-demo-1', secondary_neighborhood_id: null },
-    { id: 'demo-integrator-id', email: 'integrador@atalaia.com', name: 'Gestor Anderson', role: 'INTEGRATOR', plan: 'PREMIUM', approved: true, neighborhood_id: 'hood-demo-1', primary_neighborhood_id: 'hood-demo-1', secondary_neighborhood_id: null }
+    { id: 'demo-user-id', email: 'cliente@servcam.com.br', name: 'Mariana Costa', role: 'RESIDENT', plan: 'PREMIUM', approved: true, neighborhood_id: 'hood-demo-1', primary_neighborhood_id: 'hood-demo-1', secondary_neighborhood_id: 'hood-demo-2' },
+    { id: 'demo-scr-id', email: 'scr@servcam.com.br', name: 'Vigia Roberto', role: 'SCR', plan: 'PREMIUM', approved: true, neighborhood_id: 'hood-demo-1', primary_neighborhood_id: 'hood-demo-1', secondary_neighborhood_id: null },
+    { id: 'demo-integrator-id', email: 'integrador@servcam.com.br', name: 'Gestor Anderson', role: 'INTEGRATOR', plan: 'PREMIUM', approved: true, neighborhood_id: 'hood-demo-1', primary_neighborhood_id: 'hood-demo-1', secondary_neighborhood_id: null }
   ],
   cameras: [],
   alerts: [],
   payments: [],
-  pricingConfig: null as any
+  pricingConfig: null as any,
+  whatsappConfig: {
+    url: process.env.WHATSAPP_URL || "https://whatsapp.alienmonitoramento.com.br:443/backend/api/messages/send",
+    token: process.env.WHATSAPP_TOKEN || "",
+    sessionId: "Default"
+  },
+  whatsappAutomations: null,
+  whatsappLogs: []
 };
 
 // Supabase REST configuration for background server-side synchronization
@@ -113,6 +131,58 @@ async function syncCamerasFromSupabase() {
 }
 
 syncCamerasFromSupabase().catch(() => {});
+
+async function syncWhatsAppConfigFromSupabase() {
+  try {
+    const res = await fetch(`${SUPABASE_REST_URL}/rest/v1/system_settings?key=eq.whatsapp_config&select=value`, {
+      headers: {
+        apikey: SUPABASE_REST_KEY,
+        Authorization: `Bearer ${SUPABASE_REST_KEY}`
+      }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length > 0 && rows[0].value) {
+        const parsed = JSON.parse(rows[0].value);
+        if (parsed) {
+          inMemoryStore.whatsappConfig = {
+            url: parsed.url || inMemoryStore.whatsappConfig?.url || "https://whatsapp.alienmonitoramento.com.br:443/backend/api/messages/send",
+            token: parsed.token || inMemoryStore.whatsappConfig?.token || "",
+            sessionId: parsed.sessionId || "Default"
+          };
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn("⚠️ [Server] WhatsApp config sync fallback:", err?.message || err);
+  }
+}
+
+syncWhatsAppConfigFromSupabase().catch(() => {});
+
+async function syncWhatsAppAutomationsFromSupabase() {
+  try {
+    const res = await fetch(`${SUPABASE_REST_URL}/rest/v1/system_settings?key=eq.whatsapp_automations&select=value`, {
+      headers: {
+        apikey: SUPABASE_REST_KEY,
+        Authorization: `Bearer ${SUPABASE_REST_KEY}`
+      }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length > 0 && rows[0].value) {
+        const parsed = JSON.parse(rows[0].value);
+        if (parsed) {
+          inMemoryStore.whatsappAutomations = parsed;
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn("⚠️ [Server] WhatsApp automations sync fallback:", err?.message || err);
+  }
+}
+
+syncWhatsAppAutomationsFromSupabase().catch(() => {});
 
 // Initialize PostgreSQL Connection Pool
 const rdsConfig = {
@@ -445,6 +515,228 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Failed to save pricing config" });
     }
+  });
+
+  // --- WHATSAPP WHATICKET CONFIG & PROXY API ---
+  app.get("/api/whatsapp/config", (req, res) => {
+    res.json({
+      url: inMemoryStore.whatsappConfig?.url || process.env.WHATSAPP_URL || "https://whatsapp.alienmonitoramento.com.br:443/backend/api/messages/send",
+      token: inMemoryStore.whatsappConfig?.token || process.env.WHATSAPP_TOKEN || "",
+      sessionId: inMemoryStore.whatsappConfig?.sessionId || "Default"
+    });
+  });
+
+  app.post("/api/whatsapp/config", async (req, res) => {
+    try {
+      const { url, token, sessionId } = req.body;
+      const updatedConfig = {
+        url: (url || inMemoryStore.whatsappConfig?.url || "https://whatsapp.alienmonitoramento.com.br:443/backend/api/messages/send").trim(),
+        token: (token !== undefined ? token : inMemoryStore.whatsappConfig?.token || "").trim(),
+        sessionId: (sessionId || "Default").trim()
+      };
+      inMemoryStore.whatsappConfig = updatedConfig;
+
+      // Sync to Supabase system_settings in background
+      fetch(`${SUPABASE_REST_URL}/rest/v1/system_settings`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_REST_KEY,
+          Authorization: `Bearer ${SUPABASE_REST_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({
+          key: "whatsapp_config",
+          value: JSON.stringify(updatedConfig),
+          updated_at: new Date().toISOString()
+        })
+      }).catch((e) => console.warn("⚠️ [Server] Supabase whatsapp_config sync notice:", e?.message || e));
+
+      res.json({ success: true, config: updatedConfig });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || "Erro ao salvar configuração do WhatsApp" });
+    }
+  });
+
+  app.post("/api/whatsapp/send", async (req, res) => {
+    try {
+      const { message, number, numbers, url, token, sessionId } = req.body;
+      if (!message || (!number && (!numbers || numbers.length === 0))) {
+        return res.status(400).json({ error: "Mensagem ou números de destino ausentes." });
+      }
+
+      const targetUrl = (url || inMemoryStore.whatsappConfig?.url || process.env.WHATSAPP_URL || "https://whatsapp.alienmonitoramento.com.br:443/backend/api/messages/send").trim();
+      const targetToken = (token || inMemoryStore.whatsappConfig?.token || process.env.WHATSAPP_TOKEN || "").trim();
+
+      if (!targetToken) {
+        return res.status(401).json({ 
+          error: "Token da API do Whaticket não configurado. Por favor, acesse Central WhatsApp > Conexão API e insira o Token de Acesso da sua conexão." 
+        });
+      }
+
+      const rawTargets = numbers && Array.isArray(numbers) ? numbers : [number];
+      const cleanTargets = rawTargets.map((t: any) => {
+        let clean = String(t || "").replace(/\D/g, "");
+        if (clean.length === 10 || clean.length === 11) {
+          clean = "55" + clean;
+        }
+        if (clean.startsWith("0") && (clean.length === 11 || clean.length === 12)) {
+          clean = "55" + clean.substring(1);
+        }
+        return clean;
+      }).filter((c: string) => c.length >= 8);
+
+      if (cleanTargets.length === 0) {
+        return res.status(400).json({ error: "Nenhum número de telefone válido encontrado para envio." });
+      }
+
+      const triggerName = req.body.trigger || "Disparo WhatsApp";
+      const results = [];
+      for (const target of cleanTargets) {
+        let isSuccess = false;
+        let errorMsg = "";
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 15000);
+
+          const response = await fetch(targetUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${targetToken}`,
+              "apikey": targetToken
+            },
+            body: JSON.stringify({
+              number: target,
+              body: message
+            }),
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
+
+          const textResp = await response.text();
+          let jsonResp: any = null;
+          try { jsonResp = JSON.parse(textResp); } catch (_) {}
+
+          if (!response.ok) {
+            errorMsg = textResp;
+            if (response.status === 401) {
+              errorMsg = "Erro 401: Token do Whaticket inválido ou não autorizado em whatsapp.alienmonitoramento.com.br. Verifique o token no painel do Whaticket.";
+            } else if (response.status === 404) {
+              errorMsg = `Erro 404: Endpoint ${targetUrl} não encontrado.`;
+            } else if (jsonResp?.message || jsonResp?.error) {
+              errorMsg = jsonResp.message || jsonResp.error;
+            }
+            results.push({ target, success: false, status: response.status, error: errorMsg });
+          } else {
+            isSuccess = true;
+            results.push({ target, success: true, data: jsonResp || textResp });
+          }
+        } catch (targetErr: any) {
+          errorMsg = targetErr?.message || "Falha de conexão com a API do Whaticket.";
+          results.push({ target, success: false, error: errorMsg });
+        }
+
+        // Record in dispatch audit log
+        try {
+          if (!inMemoryStore.whatsappLogs) inMemoryStore.whatsappLogs = [];
+          inMemoryStore.whatsappLogs.unshift({
+            id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            timestamp: new Date().toISOString(),
+            trigger: triggerName,
+            recipient: target,
+            messageSnippet: message.length > 120 ? message.substring(0, 117) + "..." : message,
+            status: isSuccess ? "SENT" : "FAILED",
+            error: errorMsg || undefined
+          });
+          if (inMemoryStore.whatsappLogs.length > 100) {
+            inMemoryStore.whatsappLogs = inMemoryStore.whatsappLogs.slice(0, 100);
+          }
+        } catch (_) {}
+      }
+
+      const allFailed = results.every(r => !r.success);
+      if (allFailed) {
+        return res.status(400).json({ 
+          success: false, 
+          error: results[0]?.error || "Falha no envio de mensagens.",
+          results 
+        });
+      }
+
+      return res.json({ success: true, results });
+    } catch (err: any) {
+      console.error("[/api/whatsapp/send] Erro fatal:", err);
+      return res.status(500).json({ error: err?.message || "Erro interno ao processar disparo WhatsApp." });
+    }
+  });
+
+  // --- WHATSAPP AUTOMATIONS CONFIG API ---
+  app.get("/api/whatsapp/automations", async (req, res) => {
+    try {
+      if (inMemoryStore.whatsappAutomations) {
+        return res.json(inMemoryStore.whatsappAutomations);
+      }
+      // Try to read from Supabase system_settings
+      const sbRes = await fetch(`${SUPABASE_REST_URL}/rest/v1/system_settings?key=eq.whatsapp_automations&select=value`, {
+        headers: {
+          apikey: SUPABASE_REST_KEY,
+          Authorization: `Bearer ${SUPABASE_REST_KEY}`
+        }
+      });
+      if (sbRes.ok) {
+        const rows = await sbRes.json();
+        if (Array.isArray(rows) && rows.length > 0 && rows[0].value) {
+          const parsed = JSON.parse(rows[0].value);
+          inMemoryStore.whatsappAutomations = parsed;
+          return res.json(parsed);
+        }
+      }
+      return res.json(null);
+    } catch (err: any) {
+      console.warn("⚠️ [Server] Automations read fallback:", err?.message || err);
+      return res.json(inMemoryStore.whatsappAutomations || null);
+    }
+  });
+
+  app.post("/api/whatsapp/automations", async (req, res) => {
+    try {
+      const automations = req.body;
+      inMemoryStore.whatsappAutomations = automations;
+
+      // Sync to Supabase system_settings
+      try {
+        await fetch(`${SUPABASE_REST_URL}/rest/v1/system_settings`, {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_REST_KEY,
+            Authorization: `Bearer ${SUPABASE_REST_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates"
+          },
+          body: JSON.stringify({
+            key: "whatsapp_automations",
+            value: JSON.stringify(automations)
+          })
+        });
+      } catch (sbErr) {
+        console.warn("⚠️ [Server] Failed to persist automations to Supabase:", sbErr);
+      }
+
+      return res.json({ success: true, automations });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || "Erro ao salvar automações" });
+    }
+  });
+
+  // --- WHATSAPP DISPATCH LOGS API ---
+  app.get("/api/whatsapp/logs", (req, res) => {
+    return res.json(inMemoryStore.whatsappLogs || []);
+  });
+
+  app.delete("/api/whatsapp/logs", (req, res) => {
+    inMemoryStore.whatsappLogs = [];
+    return res.json({ success: true, message: "Logs de WhatsApp limpos com sucesso" });
   });
 
   app.post("/api/neighborhoods", async (req, res) => {
@@ -955,7 +1247,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 SaaS ATALAIA Server running on http://0.0.0.0:${PORT}`);
+    console.log(`🚀 SaaS ServCam Server running on http://0.0.0.0:${PORT}`);
   });
 }
 

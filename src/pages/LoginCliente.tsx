@@ -98,7 +98,23 @@ const LoginCliente: React.FC = () => {
 
         let matchedInt = null;
         if (paramId) {
-          matchedInt = ints.find(i => i.id === paramId || i.id.toLowerCase().includes(paramId.toLowerCase()));
+          const p = paramId.toLowerCase().trim();
+          matchedInt = ints.find(i => 
+            i.id === paramId || 
+            (i.customSlug && i.customSlug.toLowerCase() === p) ||
+            i.id.toLowerCase() === p ||
+            (p.includes('alien') && (
+              i.id.toLowerCase().includes('alien') ||
+              i.id === 'a11e9920-6765-4f81-b454-e6778b77ee66' ||
+              (i.companyName && i.companyName.toLowerCase().includes('alien')) ||
+              (i.name && i.name.toLowerCase().includes('alien'))
+            )) ||
+            (p === 'a11e9920-6765-4f81-b454-e6778b77ee66' && (
+              i.id === 'a11e9920-6765-4f81-b454-e6778b77ee66' ||
+              i.id === 'alienmonitoramento-integrator-id' ||
+              (i.companyName && i.companyName.toLowerCase().includes('alien'))
+            ))
+          );
         }
         if (!matchedInt && paramEmpresa) {
           const q = paramEmpresa.toLowerCase();
@@ -111,7 +127,11 @@ const LoginCliente: React.FC = () => {
         if (!matchedInt && typeof window !== 'undefined') {
           const storedId = localStorage.getItem('atalaia_last_client_integrator_id');
           if (storedId) {
-            matchedInt = ints.find(i => i.id === storedId);
+            matchedInt = ints.find(i => 
+              i.id === storedId || 
+              (i.customSlug && i.customSlug === storedId) ||
+              (storedId.includes('alien') && (i.id.includes('alien') || i.id === 'a11e9920-6765-4f81-b454-e6778b77ee66'))
+            );
           }
         }
         // 3. Fallback para primeiro integrador disponível
@@ -121,6 +141,11 @@ const LoginCliente: React.FC = () => {
 
         if (matchedInt) {
           setSelectedIntegratorId(matchedInt.id);
+          const effectiveParam = matchedInt.customSlug || matchedInt.id;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('atalaia_last_client_integrator_id', matchedInt.id);
+            localStorage.setItem('atalaia_last_login_url', `/logincliente?integrator=${effectiveParam}`);
+          }
           // Associa apenas bairro explicitamente vinculado a esse integrador
           const linkedHood = hoods.find(h => h.integratorId === matchedInt!.id);
           if (linkedHood) {
@@ -274,6 +299,7 @@ const LoginCliente: React.FC = () => {
           await MockService.linkUserIntegratorByEmail(email.trim(), activeIntegrator.id, intName);
           if (typeof window !== 'undefined') {
             localStorage.setItem('atalaia_last_client_integrator_id', activeIntegrator.id);
+            localStorage.setItem('atalaia_last_login_url', `/logincliente?integrator=${activeIntegrator.id}`);
             try {
               const rawLinks = localStorage.getItem('atalaia_user_integrators');
               const parsedLinks = rawLinks ? JSON.parse(rawLinks) : {};
@@ -303,6 +329,7 @@ const LoginCliente: React.FC = () => {
         // Vincula e armazena integrador ativo
         if (activeIntegrator && typeof window !== 'undefined') {
           localStorage.setItem('atalaia_last_client_integrator_id', activeIntegrator.id);
+          localStorage.setItem('atalaia_last_login_url', `/logincliente?integrator=${activeIntegrator.id}`);
           const intName = activeIntegrator.companyName || activeIntegrator.razaoSocial || activeIntegrator.name;
           MockService.linkUserIntegratorByEmail(email.trim(), activeIntegrator.id, intName).catch(() => {});
         }

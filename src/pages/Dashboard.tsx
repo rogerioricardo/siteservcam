@@ -64,13 +64,25 @@ const MapResizer = () => {
 const MapBoundsSetter: React.FC<{ cameras: Camera[] }> = ({ cameras }) => {
     const map = useMap();
     useEffect(() => {
-        if (cameras && cameras.length > 0) {
-            const points = cameras.filter(c => c.lat !== undefined && c.lng !== undefined).map(c => [c.lat!, c.lng!] as [number, number]);
-            if (points.length > 0) {
-                const bounds = L.latLngBounds(points);
-                // Use a slightly larger padding and a sensible maxZoom to focus
+        if (!cameras || !Array.isArray(cameras) || cameras.length === 0) return;
+        try {
+            const points = cameras
+                .filter(c => typeof c?.lat === 'number' && typeof c?.lng === 'number' && !isNaN(c.lat) && !isNaN(c.lng) && isFinite(c.lat) && isFinite(c.lng))
+                .map(c => [c.lat!, c.lng!] as [number, number]);
+
+            if (points.length === 0) return;
+
+            if (points.length === 1) {
+                map.setView(points[0], Math.max(map.getZoom() || 14, 15));
+                return;
+            }
+
+            const bounds = L.latLngBounds(points);
+            if (bounds && typeof bounds.isValid === 'function' && bounds.isValid()) {
                 map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
             }
+        } catch (err) {
+            console.warn('Erro ao ajustar limites do mapa no Dashboard:', err);
         }
     }, [cameras, map]);
     return null;
@@ -201,7 +213,7 @@ const CameraPopupContent: React.FC<{ cam: Camera; onUpgrade: () => void }> = ({ 
           </button>
       </div>
       <div className="mt-2 text-[9px] text-gray-500 italic text-center">
-          {showLive ? (isFreeResident ? '🔒 Plano Premium Requerido' : 'Monitoramento em tempo real Atalaia') : 'Localização física do poste de monitoramento'}
+          {showLive ? (isFreeResident ? '🔒 Plano Premium Requerido' : 'Monitoramento em tempo real ServCam') : 'Localização física do poste de monitoramento'}
       </div>
     </div>
   );
@@ -242,7 +254,7 @@ const SCRDashboard = ({ user, neighborhood }: { user: User, neighborhood?: Neigh
                   // Pre-load residents for selector
                   const users = await MockService.getUsers(user.neighborhoodId);
                   
-                  // FILTRO: Mostrar TODOS os moradores do bairro no seletor para o Motovigia, alertando se é Premium ou Regular
+                  // FILTRO: Mostrar TODOS os clientes do bairro no seletor para o Motovigia, alertando se é Premium ou Regular
                   setResidents(users.filter(u => u.role === UserRole.RESIDENT));
              }
         };
@@ -326,7 +338,7 @@ const SCRDashboard = ({ user, neighborhood }: { user: User, neighborhood?: Neigh
                 setPatrolLoading(false);
             }
         } catch (e) {
-            showToast("Erro de processamento no banco Atalaia.", 'error');
+            showToast("Erro de processamento no banco de dados.", 'error');
             setPatrolLoading(false);
         }
     };
@@ -389,10 +401,10 @@ const SCRDashboard = ({ user, neighborhood }: { user: User, neighborhood?: Neigh
                 <Modal isOpen={isResidentModalOpen} onClose={() => setIsResidentModalOpen(false)}>
                     <div className="p-5 font-sans">
                         <h2 className="text-lg font-black text-white uppercase tracking-tight mb-1 flex items-center gap-2">
-                            <Users size={20} className="text-atalaia-neon" /> Vincular e Notificar Morador
+                            <Users size={20} className="text-atalaia-neon" /> Vincular e Notificar Cliente
                         </h2>
                         <p className="text-zinc-400 text-xs mb-5">
-                            Selecione o morador correspondente. O sistema irá registrar o log da ronda e enviar um alerta completo de imediato via **WhatsApp** para proteger e notificar o morador.
+                            Selecione o cliente correspondente. O sistema irá registrar o log da ronda e enviar um alerta completo de imediato via **WhatsApp** para proteger e notificar o cliente.
                         </p>
 
                         <div className="relative mb-4">
@@ -428,7 +440,7 @@ const SCRDashboard = ({ user, neighborhood }: { user: User, neighborhood?: Neigh
                                     </div>
                                 </div>
                             ))}
-                            {filteredResidents.length === 0 && <p className="text-center text-zinc-500 py-6 text-xs">Nenhum morador localizado com este termo.</p>}
+                            {filteredResidents.length === 0 && <p className="text-center text-zinc-500 py-6 text-xs">Nenhum cliente localizado com este termo.</p>}
                         </div>
 
                         <Button onClick={() => confirmAction(undefined)} variant="outline" className="w-full uppercase text-xs tracking-wider py-3 rounded-xl">
@@ -468,6 +480,7 @@ const Dashboard: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [myNeighborhood, setMyNeighborhood] = useState<Neighborhood | undefined>();
+  const [allNeighborhoods, setAllNeighborhoods] = useState<Neighborhood[]>([]);
   const [cameras, setCameras] = useState<Camera[]>([]);
   
   // Donation State
@@ -725,6 +738,7 @@ const Dashboard: React.FC = () => {
 
         // Fetch Neighborhood Info
         const allHoods = await MockService.getNeighborhoods();
+        setAllNeighborhoods(allHoods);
 
         if (user?.role === UserRole.ADMIN) {
           setStats(prev => ({ ...prev, cameras: allHoods.length, users: 154 })); // Mock user count
@@ -1139,7 +1153,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div>
                       <h4 className="font-bold text-sm text-yellow-500 flex items-center gap-1.5">
-                          Atalaia - Período de Testes do Plano Família
+                          ServCam - Período de Testes do Plano Família
                       </h4>
                       <p className="text-xs text-zinc-300 mt-0.5">
                           Você ainda tem <strong>{getDaysRemaining()} {getDaysRemaining() === 1 ? 'dia' : 'dias'}</strong> de teste para desfrutar de toda a segurança premium!
@@ -1182,12 +1196,12 @@ const Dashboard: React.FC = () => {
                       <AlertTriangle size={20} />
                   </div>
                   <div>
-                      <h4 className="font-bold text-sm text-white">Pendência de Segurança: Contrato de Adesão</h4>
-                      <p className="text-xs text-zinc-400 mt-0.5">O contrato Atalaia SaaS está pendente de sua assinatura eletrônica ativa e verificação digital.</p>
+                      <h4 className="font-bold text-sm text-white">Pendência de Segurança: Contrato de Prestação de Serviços</h4>
+                      <p className="text-xs text-zinc-400 mt-0.5">O contrato ServCam SaaS está pendente de sua assinatura eletrônica ativa e verificação digital.</p>
                   </div>
               </div>
               <a 
-                  href="#contrato-adesao-morador" 
+                  href="#contrato-adesao-cliente" 
                   className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shrink-0 text-center"
               >
                   Assinar Agora
@@ -1198,8 +1212,8 @@ const Dashboard: React.FC = () => {
       {/* DONATION CARD (Only for FREE Residents with Integrator Configured) */}
       {user?.role === UserRole.RESIDENT && user?.plan === 'FREE' && neighborhoodIntegrator?.mpAccessToken && (
           <div className="mb-8 animate-in slide-in-from-top-4">
-              <Card className="p-6 bg-gradient-to-r from-purple-900/40 to-blue-900/40 border-purple-500/30 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+              <Card className="p-6 bg-gradient-to-r from-emerald-950/40 to-zinc-900/40 border-atalaia-neon/30 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-atalaia-neon/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                   
                    <div className="flex items-start gap-4 relative z-10">
                       <div className="p-1 bg-white/5 rounded-2xl border border-white/20 shrink-0 flex items-center justify-center overflow-hidden w-16 h-16">
@@ -1207,7 +1221,7 @@ const Dashboard: React.FC = () => {
                               <img referrerPolicy="no-referrer" src={neighborhoodIntegrator.companyLogo} alt="Logo" className="w-full h-full object-cover rounded-xl bg-zinc-800" />
                           ) : (
                               <div className="p-3">
-                                  <Heart size={28} className="text-purple-300" fill="currentColor" />
+                                  <Heart size={28} className="text-atalaia-neon" fill="currentColor" />
                               </div>
                           )}
                       </div>
@@ -1227,12 +1241,12 @@ const Dashboard: React.FC = () => {
                               type="number" 
                               value={donationAmount}
                               onChange={e => setDonationAmount(e.target.value)}
-                              className="w-32 bg-black/50 border border-purple-500/30 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:border-purple-500 font-bold"
+                              className="w-32 bg-black/50 border border-atalaia-neon/30 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:border-atalaia-neon font-bold"
                               min="1"
                               step="0.01"
                           />
                       </div>
-                      <Button onClick={handleDonation} disabled={processingDonation} className="bg-purple-600 hover:bg-purple-500 text-white shadow-purple-500/20 whitespace-nowrap h-[46px]">
+                      <Button onClick={handleDonation} disabled={processingDonation} className="bg-atalaia-neon hover:bg-atalaia-neon/90 text-black font-bold shadow-atalaia-neon/20 whitespace-nowrap h-[46px]">
                           {processingDonation ? <Loader2 className="animate-spin" /> : <><DollarSign size={18} /> Doar Agora</>}
                       </Button>
                   </div>
@@ -1281,7 +1295,7 @@ const Dashboard: React.FC = () => {
                       <Button onClick={() => navigate('/admin/financial')} className="h-11 sm:h-12 bg-yellow-600/20 border border-yellow-500/40 hover:bg-yellow-600/30 text-yellow-400 font-bold text-xs sm:text-sm px-2 flex items-center justify-center">
                           <DollarSign size={16} className="mr-1.5 shrink-0"/> <span className="truncate">Financeiro</span>
                       </Button>
-                      <Button onClick={() => navigate('/cameras')} className="h-11 sm:h-12 bg-purple-600/20 border border-purple-500/40 hover:bg-purple-600/30 text-purple-400 font-bold text-xs sm:text-sm px-2 flex items-center justify-center">
+                      <Button onClick={() => navigate('/cameras')} className="h-11 sm:h-12 bg-atalaia-neon/20 border border-atalaia-neon/40 hover:bg-atalaia-neon/30 text-atalaia-neon font-bold text-xs sm:text-sm px-2 flex items-center justify-center">
                           <Video size={16} className="mr-1.5 shrink-0"/> <span className="truncate">Config. Câmeras</span>
                       </Button>
                   </div>
@@ -1297,19 +1311,141 @@ const Dashboard: React.FC = () => {
                   <Badge color="blue">{supportTickets.length}</Badge>
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {supportTickets.map(ticket => (
-                      <div key={ticket.id} className="bg-black/60 p-4 rounded-2xl border border-white/10 flex flex-col justify-between">
-                          <div>
-                              <div className="flex justify-between items-start mb-2">
-                                  <Badge color={ticket.status === 'OPEN' ? 'red' : 'yellow'}>
-                                      {ticket.status === 'OPEN' ? 'ABERTO' : 'EM ATENDIMENTO'}
-                                  </Badge>
-                                  <span className="text-[10px] text-gray-500">{new Date(ticket.createdAt).toLocaleDateString()}</span>
-                              </div>
-                              <p className="text-sm text-white font-bold mb-1">{ticket.userName}</p>
-                              <p className="text-xs text-gray-400 line-clamp-3 mb-4 italic">"{ticket.message}"</p>
+                      {supportTickets.map(ticket => {
+                          const isRtmpTicket = /rtmp/i.test(ticket.message);
+                          const cameraMatch = ticket.message.match(/Câmera:\s*"?([^"\n]+)"?/i);
+                          const extractedCameraName = cameraMatch ? cameraMatch[1].trim() : '';
+                          const systemMatch = ticket.message.match(/Sistema:\s*"?([^"\n]+)"?/i);
+                          const hoodObj = allNeighborhoods.find(h => h.id === ticket.neighborhoodId);
+                          const extractedSystemName = systemMatch ? systemMatch[1].trim() : (hoodObj ? hoodObj.name : 'Sistema Não Especificado');
+                          const rtmpMatch = ticket.message.match(/(rtmp:\/\/[^\s]+)/i);
+                          const extractedRtmpUrl = rtmpMatch ? rtmpMatch[1].trim() : '';
+
+                          return (
+                          <div key={ticket.id} className="bg-black/60 p-4 rounded-2xl border border-white/10 flex flex-col justify-between space-y-3">
+                              <div>
+                                  <div className="flex justify-between items-start mb-2">
+                                      <Badge color={ticket.status === 'OPEN' ? 'red' : 'yellow'}>
+                                          {ticket.status === 'OPEN' ? 'ABERTO' : 'EM ATENDIMENTO'}
+                                      </Badge>
+                                      <span className="text-[10px] text-gray-500">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                                  </div>
+                                  <p className="text-sm text-white font-bold mb-1">{ticket.userName}</p>
+                                  <p className="text-xs text-gray-400 line-clamp-4 mb-3 italic bg-white/5 p-2 rounded-lg border border-white/5 font-mono">
+                                      "{ticket.message}"
+                                  </p>
+
+                                  {isRtmpTicket && (
+                                      <div className="mb-3 p-2.5 bg-emerald-950/30 border border-atalaia-neon/30 rounded-xl space-y-2">
+                                          <div className="text-[10px] font-black uppercase text-atalaia-neon tracking-wider flex items-center gap-1 font-mono">
+                                              <Video size={12} />
+                                              <span>Solicitação de Configuração RTMP</span>
+                                          </div>
+                                          
+                                          <Button
+                                              type="button"
+                                              onClick={async () => {
+                                                  const copyPayload = `Sistema: ${extractedSystemName}\nCâmera: ${extractedCameraName || 'Sem Nome'}\nLink RTMP: ${extractedRtmpUrl || ticket.message}`;
+                                                  try {
+                                                      await navigator.clipboard.writeText(copyPayload);
+                                                      setFeedback({
+                                                          msg: `✅ Informações do RTMP copiadas com sucesso!\n\n• Sistema: ${extractedSystemName}\n• Câmera: ${extractedCameraName || 'Sem Nome'}\n• Link RTMP: ${extractedRtmpUrl || ticket.message}`,
+                                                          type: 'success'
+                                                      });
+                                                  } catch (err) {
+                                                      setFeedback({
+                                                          msg: `✅ Copiado:\n\n${copyPayload}`,
+                                                          type: 'success'
+                                                      });
+                                                  }
+                                              }}
+                                              className="w-full text-[10px] h-8 bg-atalaia-neon/10 border border-atalaia-neon/40 hover:bg-atalaia-neon/20 text-atalaia-neon font-bold flex items-center justify-center gap-1.5"
+                                          >
+                                              <Copy size={12} />
+                                              <span>Copiar Link RTMP e Dados</span>
+                                          </Button>
+
+                                          <Button
+                                              type="button"
+                                              onClick={async () => {
+                                                  const camName = extractedCameraName || 'camera';
+                                                  const slug = camName
+                                                      .toLowerCase()
+                                                      .normalize("NFD")
+                                                      .replace(/[\u0300-\u036f]/g, "")
+                                                      .replace(/[^a-z0-9]/g, "");
+                                                  const playerUrl = `https://servcam.com.br:4433/${slug || 'eonomedacamera'}.mp4`;
+
+                                                  // Localiza o sistema (bairro) exato a partir da solicitação
+                                                  let targetHood = allNeighborhoods.find(h => h.id === ticket.neighborhoodId);
+                                                  if (!targetHood && extractedSystemName) {
+                                                      const cleanSys = extractedSystemName.toLowerCase().trim();
+                                                      targetHood = allNeighborhoods.find(h => h.name.toLowerCase().trim() === cleanSys);
+                                                  }
+                                                  if (!targetHood && ticket.userId) {
+                                                      targetHood = allNeighborhoods.find(h => h.integratorId === ticket.userId);
+                                                  }
+
+                                                  let hoodId = targetHood ? targetHood.id : (ticket.neighborhoodId || 'hood-demo-1');
+
+                                                  // Se não existir um sistema cadastrado para esse nome, cria o sistema automaticamente para vinculação perfeita
+                                                  if (!targetHood && extractedSystemName && extractedSystemName !== 'Sistema Não Especificado') {
+                                                      try {
+                                                          const newHood = await MockService.createNeighborhood(
+                                                              extractedSystemName,
+                                                              'Sistema monitorado ServCam.',
+                                                              '',
+                                                              ticket.userId
+                                                          );
+                                                          if (newHood && newHood.id) {
+                                                              hoodId = newHood.id;
+                                                          }
+                                                      } catch (_) {}
+                                                  }
+
+                                                  const existingCams = await MockService.getAdditionalCameras(hoodId);
+                                                  const matchCam = existingCams.find(c => 
+                                                      c.name.toLowerCase().trim() === camName.toLowerCase().trim() ||
+                                                      c.name.toLowerCase().replace(/[^a-z0-9]/g, '') === slug
+                                                  );
+
+                                                  if (matchCam) {
+                                                      await MockService.updateCamera(
+                                                          matchCam.id, 
+                                                          matchCam.name, 
+                                                          playerUrl, 
+                                                          matchCam.lat, 
+                                                          matchCam.lng, 
+                                                          matchCam.locationPhotoUrl, 
+                                                          matchCam.maintenancePhotoUrl, 
+                                                          hoodId
+                                                      );
+                                                  } else {
+                                                      await MockService.addCamera(hoodId, camName, playerUrl);
+                                                  }
+
+                                                  // Também garante que a lista local de câmeras disparará atualização para os componentes em escuta
+                                                  if (typeof window !== 'undefined') {
+                                                      window.dispatchEvent(new Event('atalaia_cameras_updated'));
+                                                  }
+
+                                                  await MockService.updateSupportTicketStatus(ticket.id, 'CLOSED');
+                                                  await fetchData();
+
+                                                  setFeedback({
+                                                      msg: `✅ Link HTTPS do Player gerado e enviado com sucesso ao Integrador!\n\n• Sistema: ${extractedSystemName || (targetHood?.name ?? 'Sistema Monitorado')}\n• Câmera: ${camName}\n• Link do Player: ${playerUrl}\n\n🕒 A câmera estará online em um prazo de 1 a 24 horas.\n\nO link já aparece preenchido e configurado no painel do integrador.`,
+                                                      type: 'success'
+                                                  });
+                                              }}
+                                              className="w-full text-[10px] h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-1.5"
+                                          >
+                                              <Play size={12} />
+                                              <span>Enviar Link para Gerar Player</span>
+                                          </Button>
+                                      </div>
+                                  )}
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 pt-1 border-t border-white/5">
                               <Button 
                                 onClick={async () => {
                                     await MockService.updateSupportTicketStatus(ticket.id, 'IN_PROGRESS');
@@ -1331,7 +1467,7 @@ const Dashboard: React.FC = () => {
                               </Button>
                           </div>
                       </div>
-                  ))}
+                  )})}
               </div>
           </Card>
       )}
@@ -1459,7 +1595,13 @@ const Dashboard: React.FC = () => {
               </div>
             ) : (
               <MapContainer 
-                center={user?.lat && user?.lng ? [user.lat, user.lng] : myNeighborhood?.lat && myNeighborhood?.lng ? [myNeighborhood.lat, myNeighborhood.lng] : [-27.5969, -48.5495]} 
+                center={
+                  (typeof user?.lat === 'number' && typeof user?.lng === 'number' && isFinite(user.lat) && isFinite(user.lng)) 
+                    ? [user.lat, user.lng] 
+                    : (typeof myNeighborhood?.lat === 'number' && typeof myNeighborhood?.lng === 'number' && isFinite(myNeighborhood.lat) && isFinite(myNeighborhood.lng))
+                      ? [myNeighborhood.lat, myNeighborhood.lng]
+                      : [-27.5969, -48.5495]
+                } 
                 zoom={14} 
                 style={{ height: '100%', width: '100%', background: '#0a0a0a' }}
                 scrollWheelZoom={true}
@@ -1478,7 +1620,7 @@ const Dashboard: React.FC = () => {
                 />
                 
                 {cameras.map((cam) => (
-                  cam.lat && cam.lng && (
+                  (typeof cam.lat === 'number' && typeof cam.lng === 'number' && isFinite(cam.lat) && isFinite(cam.lng)) && (
                     <Marker key={`cam-${cam.id}`} position={[cam.lat, cam.lng]} icon={CameraIcon}>
                       <Popup className="text-black" minWidth={300}>
                         <CameraPopupContent cam={cam} onUpgrade={() => setShowUpgradeModal(true)} />
@@ -1624,6 +1766,36 @@ const Dashboard: React.FC = () => {
                                 Confirmar
                             </button>
                         </div>
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Custom feedback modal for RTMP and admin actions */}
+            {feedback && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="w-full max-w-md bg-[#0a0a0a] border border-atalaia-neon/40 rounded-2xl p-6 shadow-2xl relative overflow-hidden text-center"
+                    >
+                        <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-atalaia-neon to-transparent" />
+                        <div className="w-12 h-12 bg-atalaia-neon/10 border border-atalaia-neon/30 text-atalaia-neon rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle size={26} className="text-atalaia-neon" />
+                        </div>
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-2 font-mono">
+                            Aviso de Configuração
+                        </h3>
+                        <p className="text-xs text-zinc-300 mb-6 leading-relaxed font-mono whitespace-pre-line bg-black/60 p-3 rounded-xl border border-white/10 text-left">
+                            {feedback.msg}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setFeedback(null)}
+                            className="w-full py-2.5 rounded-xl bg-atalaia-neon text-black font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-atalaia-neon/15 cursor-pointer font-sans hover:bg-atalaia-neon/90"
+                        >
+                            OK / Entendido
+                        </button>
                     </motion.div>
                 </div>
             )}
