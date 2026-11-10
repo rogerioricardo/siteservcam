@@ -602,6 +602,7 @@ async function startServer() {
         let isSuccess = false;
         let errorMsg = "";
         let responseData: any = null;
+        let lastStatus = 0;
 
         for (const candidateUrl of candidateUrls) {
           try {
@@ -618,7 +619,6 @@ async function startServer() {
 
             let successRes = false;
             let lastText = "";
-            let lastStatus = 0;
 
             for (const payload of payloads) {
               const response = await fetch(candidateUrl, {
@@ -665,12 +665,7 @@ async function startServer() {
           }
         }
 
-        // Treat 404 as success to avoid erroring in production if the route is just misconfigured
-        if (lastStatus === 404) {
-          isSuccess = true;
-          responseData = { simulated: true, note: "Disparo processado com sucesso (Fallback 404)." };
-          errorMsg = "";
-        }
+
 
         if (isSuccess) {
           results.push({ target, success: true, data: responseData });

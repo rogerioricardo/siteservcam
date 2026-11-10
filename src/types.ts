@@ -17,6 +17,7 @@ export interface User {
   neighborhoodId?: string;
   primaryNeighborhoodId?: string;
   secondaryNeighborhoodId?: string;
+  additionalNeighborhoodIds?: string[];
   integratorId?: string;
   integratorName?: string;
   lat?: number;

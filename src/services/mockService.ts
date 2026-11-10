@@ -1278,6 +1278,7 @@ export const MockService = {
     role?: UserRole;
     neighborhoodId?: string;
     secondaryNeighborhoodId?: string;
+    additionalNeighborhoodIds?: string[];
     integratorId?: string;
     integratorName?: string;
     approved?: boolean;
@@ -1368,6 +1369,9 @@ export const MockService = {
           role,
           plan,
           neighborhood_id: sanitizeUUID(payload.neighborhoodId),
+          primary_neighborhood_id: sanitizeUUID(payload.neighborhoodId),
+          secondary_neighborhood_id: safeSecondaryId,
+          additional_neighborhood_ids: payload.additionalNeighborhoodIds || [],
           approved: isApproved,
           can_read: canRead,
           can_edit: canEdit
@@ -2410,38 +2414,87 @@ export const MockService = {
     const targetUrl = (customUrl || config.url || "https://whatsapp.alienmonitoramento.com.br:443/backend/api/messages/send").trim();
     const targetToken = (customToken || config.token || "HSYumH8GyDXc90Bb1ZcBoVMBjatynktt").trim();
 
-    const results = [];
-    for (const target of numbers) {
-        let clean = String(target || "").replace(/\D/g, "");
-        if (clean.length === 10 || clean.length === 11) clean = "55" + clean;
-        if (clean.length < 8) continue;
-
-        try {
-            const response = await fetch(targetUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${targetToken}`,
-                    "apikey": targetToken
-                },
-                body: JSON.stringify({
-                    number: clean,
-                    body: message
-                })
-            });
-
-            if (response.ok) {
-                results.push({ target: clean, success: true });
-            } else {
-                console.warn(`[Direct WhatsApp] Failed for ${clean}: ${response.status}`);
-                // Graceful success fallback for production
-                results.push({ target: clean, success: true, data: { simulated: true, note: "Mensagem enfileirada." } });
-            }
-        } catch (err) {
-            console.warn(`[Direct WhatsApp] Connection error for ${clean}:`, err);
-            results.push({ target: clean, success: true, data: { simulated: true, note: "Erro de conexão, mas mensagem enfileirada." } });
+    // 1. Try calling the backend Node.js proxy first (if running full-stack)
+    try {
+      const proxyRes = await fetch('/api/whatsapp/send', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message,
+          numbers,
+          url: targetUrl,
+          token: targetToken,
+          trigger: trigger || "Disparo WhatsApp"
+        })
+      });
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json();
+        if (proxyData.success) {
+          return proxyData;
         }
+      }
+    } catch (_) {
+      // Backend proxy not available (static cPanel hosting), proceed to direct fetch
     }
+
+    // 2. Direct client-side fetch to Whaticket API
+    const results = [];
+    const errors = [];
+    for (const target of numbers) {
+      let clean = String(target || "").replace(/\D/g, "");
+      if (clean.length === 10 || clean.length === 11) clean = "55" + clean;
+      if (clean.length < 8) continue;
+
+      let success = false;
+      let lastError = "";
+
+      const payloads = [
+        { number: clean, body: message },
+        { number: clean, message: message },
+        { phone: clean, message: message },
+        { number: clean, text: message }
+      ];
+
+      for (const payload of payloads) {
+        try {
+          const response = await fetch(targetUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${targetToken}`,
+              "apikey": targetToken
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            success = true;
+            break;
+          } else {
+            const errText = await response.text();
+            lastError = `HTTP ${response.status}: ${errText || response.statusText}`;
+            if (response.status === 401) {
+              lastError = "Erro 401: Token do Whaticket inválido ou não autorizado.";
+              break;
+            }
+          }
+        } catch (fetchErr: any) {
+          lastError = fetchErr?.message || "Erro de rede / CORS ao conectar com Whaticket.";
+        }
+      }
+
+      if (success) {
+        results.push({ target: clean, success: true });
+      } else {
+        errors.push(`Número ${clean}: ${lastError}`);
+        results.push({ target: clean, success: false, error: lastError });
+      }
+    }
+
+    if (errors.length > 0 && results.every(r => !r.success)) {
+      throw new Error(`Falha no envio WhatsApp: ${errors.join(' | ')}. (Dica: Se o erro for de CORS em produção estática no cPanel, configure um proxy PHP ou certifique-se de que o servidor Whaticket permite requisições cross-origin do seu domínio).`);
+    }
+
     return { success: true, results };
   },
 

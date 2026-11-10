@@ -1455,7 +1455,7 @@ const Cameras: React.FC = () => {
                                     <Input label="Link do Player (HTTPS)" value={newPlayerUrl} onChange={e => setNewPlayerUrl(e.target.value)} placeholder="https://..." />
                                     
                                     <div className="space-y-1.5 pt-1">
-                                        <Input label="Gerador de Link RTMP" value={newRtmpUrl} onChange={e => setNewRtmpUrl(e.target.value)} placeholder="rtmp://servcam.alienmonitoramento.com.br/live/..." />
+                                        <Input label="Gerador de Link RTMP" value={newRtmpUrl} onChange={e => setNewRtmpUrl(e.target.value)} placeholder="rtmp://painel.servcam.alienmonitoramento.com.br/live/..." />
                                         <div className="flex gap-2 pt-1">
                                             <Button type="button" onClick={() => {
                                                 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -1463,7 +1463,7 @@ const Cameras: React.FC = () => {
                                                 for (let i = 0; i < 24; i++) {
                                                     randomCode += chars.charAt(Math.floor(Math.random() * chars.length));
                                                 }
-                                                const rtmpUrl = `rtmp://servcam.alienmonitoramento.com.br/live/${randomCode}`;
+                                                const rtmpUrl = `rtmp://painel.servcam.alienmonitoramento.com.br/live/${randomCode}`;
                                                 setNewRtmpUrl(rtmpUrl);
                                             }} className="text-[10px] py-1 px-3 h-8 bg-zinc-800 hover:bg-zinc-700 text-white font-bold" variant="secondary">
                                                 🔄 Gerar RTMP
